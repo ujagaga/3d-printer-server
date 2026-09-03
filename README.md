@@ -118,6 +118,31 @@ Production OAuth requires HTTPS. A reverse tunnel or reverse proxy should route 
 
 `GUARD_RELAY = True` requires a logged-in user for power control. Disabling it should be limited to trusted development environments.
 
+#### Configure Google OAuth
+
+1. Open the [Google Cloud Console](https://console.cloud.google.com/) and create or select a project.
+2. In **Google Auth Platform**, configure **Branding** with an application name, support email, and developer contact email.
+3. Under **Audience**, choose the appropriate user type:
+
+   - Choose **Internal** only when every user belongs to the same Google Workspace organization.
+   - Otherwise choose **External**. While the app is in testing, add every account that needs access as a test user. Publish the app when it should be available beyond those test users.
+
+4. Under **Data Access**, add the `email` scope. The application requests only the signed-in user's email address.
+5. Under **Clients**, create an OAuth client with the **Web application** type.
+6. Add the application's exact public callback URL as an authorized redirect URI:
+
+   ```text
+   https://YOUR_PUBLIC_HOST/oauth2callback
+   ```
+
+   Replace `YOUR_PUBLIC_HOST` with the hostname users visit. The scheme, hostname, port, path, case, and trailing slash must match exactly; this application always generates an HTTPS callback URL.
+7. Download the client configuration, rename it to `client_secret.json`, and place it in the project root beside `index.py`.
+8. Set `SUPER_ADMIN` in `settings.py` to the Google account that should become the initial administrator, then restart `3d-printer-server.service`.
+
+`client_secret.json` contains credentials and is ignored by Git. Do not commit or publish it. OAuth is bypassed when Flask debug mode is enabled.
+
+See Google's [OAuth web-server application guide](https://developers.google.com/identity/protocols/oauth2/web-server) and [audience configuration guide](https://support.google.com/cloud/answer/15549945) for current console details.
+
 ## Printer controls
 
 The dashboard polls printer status every five seconds. When printer power is switched on, the Settings control appears automatically as soon as the printer bridge reports online; no page refresh is required.
