@@ -14,6 +14,7 @@ import database
 import helper
 from authlib.integrations.flask_client import OAuth
 import logging
+import threading
 from logging.handlers import RotatingFileHandler
 import settings
 import uart_switch
@@ -56,6 +57,64 @@ logging.basicConfig(level=logging.DEBUG, handlers=handlers)
 logger = logging.getLogger(__name__)
 
 controller = uart_switch.RelayServiceController(getattr(settings, 'RELAY_TCP_PORT', 5032))
+
+PRINT_STATUS_POLL_SECONDS = 120
+_print_monitor_lock = threading.Lock()
+_print_monitor_was_printing = False
+_print_monitor_stop_requested = False
+
+
+def _registered_user_emails():
+    """Return every unique email address currently registered in the application."""
+    connection = database.open_db()
+    try:
+        rows = connection.execute(
+            "SELECT DISTINCT email FROM users WHERE email IS NOT NULL AND email != ''"
+        ).fetchall()
+        return [row['email'] for row in rows]
+    finally:
+        database.close_db(connection)
+
+
+def _send_print_finished_email():
+    subject = f"{settings.APP_TITLE} print finished"
+    body = f"The 3D printer has finished its print.\n\n{settings.APP_TITLE}"
+    for email in _registered_user_emails():
+        helper.send_email(recipient=email, subject=subject, body=body)
+
+
+def _print_completion_monitor():
+    """Notify registered users once when an SD print changes to idle."""
+    global _print_monitor_was_printing, _print_monitor_stop_requested
+
+    while True:
+        try:
+            status = helper.printer_print_status()
+            should_notify = False
+            with _print_monitor_lock:
+                if status['state'] == 'printing':
+                    _print_monitor_was_printing = True
+                elif status['state'] == 'idle' and _print_monitor_was_printing:
+                    should_notify = not _print_monitor_stop_requested
+                    _print_monitor_was_printing = False
+                    _print_monitor_stop_requested = False
+                elif status['state'] == 'offline':
+                    _print_monitor_was_printing = False
+                    _print_monitor_stop_requested = False
+
+            if should_notify:
+                _send_print_finished_email()
+        except Exception:
+            logger.exception('Print completion monitor failed')
+
+        time.sleep(PRINT_STATUS_POLL_SECONDS)
+
+
+threading.Thread(
+    target=_print_completion_monitor,
+    name='print-completion-monitor',
+    daemon=True
+).start()
 
 csrf = CSRFProtect(application)
 
@@ -346,11 +405,15 @@ def printer_settings():
 
 @application.route('/printer/start', methods=['POST'])
 def start_printer():
+    global _print_monitor_stop_requested
+
     if not get_logged_in_user():
         return redirect(safe_url_for('login'))
 
     filename = request.form.get('filename', '')
     if helper.start_printer_sd_file(filename):
+        with _print_monitor_lock:
+            _print_monitor_stop_requested = False
         flash(f'Started printing {filename}.', 'success')
     else:
         flash(f'Could not start printing {filename or "the selected file"}.', 'error')
@@ -360,10 +423,17 @@ def start_printer():
 
 @application.route('/printer/stop', methods=['POST'])
 def stop_printer():
+    global _print_monitor_stop_requested
+
     if not get_logged_in_user():
         return jsonify({'status': 'error', 'error': 'Not logged in'}), 401
 
+    with _print_monitor_lock:
+        _print_monitor_stop_requested = True
+
     if not helper.stop_printer_sd_print():
+        with _print_monitor_lock:
+            _print_monitor_stop_requested = False
         return jsonify({'status': 'error', 'error': 'Could not stop the print'}), 502
 
     return jsonify({'status': 'ok'})
