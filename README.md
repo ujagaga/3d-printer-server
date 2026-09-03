@@ -1,6 +1,7 @@
 # 3D Printer Server
 
-3D Printer Server is a Raspberry Pi-hosted Flask dashboard for monitoring and controlling a Creality Ender 3 workstation. It combines a live camera stream, authenticated printer power control, SD-card file management, print start/stop controls, and live print progress.
+3D Printer Server is a lightweight Raspberry Pi-hosted Flask dashboard for monitoring and controlling a Creality Ender 3 3D printer, or any Marlin firmware based. It combines a live camera stream, authenticated printer power control, SD-card file management, print start/stop controls, and live print progress.
+
 
 ## Features
 
@@ -9,6 +10,7 @@
 - One printer-power switch with a selectable serial-relay or USB-power backend.
 - Persistent serial connections so restarting Flask does not reset the relay board or printer.
 - Printer SD-card file listing, print start, immediate print abort, and byte-based progress.
+- Email notification to all registered users when a print finishes.
 - Asynchronous G-code upload to the printer SD card with transfer progress.
 - SQLite user data kept in `/dev/shm` during normal operation to reduce SD-card wear.
 
@@ -130,6 +132,12 @@ The camera page provides:
 
 - Live print progress using `M27` byte counters.
 - A footer Stop control using `M524` to abort the active SD print.
+
+### Print completion email
+
+The Flask service checks `M27` every two minutes independently of the browser. When an active SD print changes from printing to idle, it sends a separate completion email to every address in the users database, including the super administrator. Separate messages keep recipients' addresses private.
+
+Email uses `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_STARTTLS` from `settings.py`. A print stopped through the dashboard does not generate a completion notification. Because status is checked every two minutes, delivery can occur up to approximately two minutes after a print finishes.
 
 ### Upload behavior and filename limitation
 
