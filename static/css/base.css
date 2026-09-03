@@ -206,6 +206,20 @@ h1 {
   z-index: 10;
 }
 
+.user_picture_logout {
+  display: block;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.user_picture_logout:hover .user_picture,
+.user_picture_logout:focus-visible .user_picture {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 3px rgba(0, 215, 255, 0.2), 0 0 28px rgba(0, 215, 255, 0.4);
+}
+
 .user_picture {
   width: 44px;
   height: 44px;
@@ -213,6 +227,7 @@ h1 {
   object-fit: cover;
   border: 2px solid rgba(255, 255, 255, 0.9);
   box-shadow: 0 2px 9px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 /* Modal */

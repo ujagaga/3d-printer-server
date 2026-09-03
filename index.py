@@ -234,6 +234,17 @@ def login():
     )
 
 
+@application.route('/logout', methods=['POST'])
+def logout():
+    token = request.cookies.get('token')
+    if token:
+        database.clear_user_token(connection=g.db, token=token)
+
+    response = make_response(redirect(safe_url_for('login')))
+    response.delete_cookie('token')
+    return response
+
+
 @application.route('/oauth2callback')
 def oauth2callback():
     global google

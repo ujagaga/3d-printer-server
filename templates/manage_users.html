@@ -4,9 +4,12 @@
 {% block content %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/manage_users.css') }}">
 
-    <div class="user_picture_wrapper">
-      <img src="{{ user.picture }}" alt="Your Picture" class="user_picture">
-    </div>
+    <form method="post" action="{{ url_for('logout') }}" class="user_picture_wrapper">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="user_picture_logout" title="Log out" aria-label="Log out">
+        <img src="{{ user.picture }}" alt="Your Picture" class="user_picture">
+      </button>
+    </form>
 
     <nav class="admin_nav">
       <a href="/" class="nav_btn"><i class="fa-solid fa-home"></i></a>

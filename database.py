@@ -99,6 +99,11 @@ def delete_user(connection, email: str):
         logger.exception(f"ERROR adding user to db on line {exc_tb.tb_lineno}!\n\t{exc}")
 
 
+def clear_user_token(connection, token: str):
+    connection.execute("UPDATE users SET token = NULL WHERE token = ?;", (token,))
+    connection.commit()
+
+
 def get_user(connection, email: str = None, token: str = None, authorized: int = None):
     one = True
     if email:
