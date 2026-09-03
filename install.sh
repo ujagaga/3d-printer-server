@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-SERVICE_NAME=rrmonitor.service
+SERVICE_NAME=3d-printer-server.service
 SERVICE_FILE=/etc/systemd/system/$SERVICE_NAME
 SERVICE_USER=${SUDO_USER:-$(id -un)}
 
@@ -43,7 +43,7 @@ if [[ "$INSTALL_USB_POWER" =~ ^[Yy]$ ]]; then
     rm -f "$SUDOERS_TMP"
     exit 1
   fi
-  if ! sudo install -m 0440 "$SUDOERS_TMP" /etc/sudoers.d/rrmonitor-uhubctl; then
+  if ! sudo install -m 0440 "$SUDOERS_TMP" /etc/sudoers.d/3d-printer-server-uhubctl; then
     echo "Error: Failed to install the uhubctl sudoers rule."
     rm -f "$SUDOERS_TMP"
     exit 1
@@ -97,7 +97,7 @@ fi
 echo "Creating systemd service file: $SERVICE_FILE"
 cat <<EOF > "$PWD/$SERVICE_NAME"
 [Unit]
-Description=R_R_Monitor
+Description=3D Printer Server
 After=network-online.target relay_service.service
 Wants=network-online.target
 StartLimitIntervalSec=0
@@ -213,6 +213,6 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-echo "Radina Radionica Monitor installation and service started successfully!"
+echo "3D Printer Server installation and services started successfully!"
 
 exit 0

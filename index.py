@@ -27,7 +27,7 @@ ALLOWED_EXTENSIONS = ["bin"]
 
 application = Flask(__name__, static_url_path='/static', static_folder='static')
 application.config['SECRET_KEY'] = settings.APP_SECRET_KEY
-application.config['SESSION_COOKIE_NAME'] = 'gate_ctrl'
+application.config['SESSION_COOKIE_NAME'] = 'printer_server'
 application.config['WTF_CSRF_SECRET_KEY'] = application.config['SECRET_KEY']
 application.config['APPLICATION_ROOT'] = '/'
 application.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER

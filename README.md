@@ -1,6 +1,6 @@
-# R.R. Monitor
+# 3D Printer Server
 
-R.R. Monitor is a Raspberry Pi-hosted Flask dashboard for monitoring and controlling a Creality Ender 3 workstation. It combines a live camera stream, authenticated printer power control, SD-card file management, print start/stop controls, and live print progress.
+3D Printer Server is a Raspberry Pi-hosted Flask dashboard for monitoring and controlling a Creality Ender 3 workstation. It combines a live camera stream, authenticated printer power control, SD-card file management, print start/stop controls, and live print progress.
 
 ## Features
 
@@ -16,14 +16,14 @@ R.R. Monitor is a Raspberry Pi-hosted Flask dashboard for monitoring and control
 
 | Component | Default address | Purpose |
 |---|---:|---|
-| `rrmonitor.service` | `0.0.0.0:5030` | Gunicorn/Flask web application |
+| `3d-printer-server.service` | `0.0.0.0:5030` | Gunicorn/Flask web application |
 | `printer_service.service` | `127.0.0.1:5031` | Persistent Ender serial connection and G-code bridge |
 | `relay_service.service` | `127.0.0.1:5032` | Persistent UART relay connection |
 | `ustreamer` | `0.0.0.0:8013` | MJPEG camera stream |
 
 Both hardware bridges bind only to localhost. Flask communicates with them over TCP.
 
-Opening either USB serial device can reset its controller. Keeping serial ownership in separate long-running services allows `rrmonitor.service` to restart without turning the printer off or interrupting a print.
+Opening either USB serial device can reset its controller. Keeping serial ownership in separate long-running services allows `3d-printer-server.service` to restart without turning the printer off or interrupting a print.
 
 ## Installation
 
@@ -140,14 +140,14 @@ This Ender firmware does not expose long filenames through `M20 L` or `M33`. Upl
 ## Service management
 
 ```bash
-sudo systemctl status rrmonitor.service relay_service.service printer_service.service
-sudo systemctl restart rrmonitor.service
-journalctl -u rrmonitor.service -n 100 --no-pager
+sudo systemctl status 3d-printer-server.service relay_service.service printer_service.service
+sudo systemctl restart 3d-printer-server.service
+journalctl -u 3d-printer-server.service -n 100 --no-pager
 journalctl -u relay_service.service -n 100 --no-pager
 journalctl -u printer_service.service -n 100 --no-pager
 ```
 
-Restarting only `rrmonitor.service` leaves both serial bridges running. Restarting `printer_service.service` reopens the printer serial port and may reset the printer, so first confirm that no print is active.
+Restarting only `3d-printer-server.service` leaves both serial bridges running. Restarting `printer_service.service` reopens the printer serial port and may reset the printer, so first confirm that no print is active.
 
 ## Development
 

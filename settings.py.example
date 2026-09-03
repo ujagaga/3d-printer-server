@@ -1,4 +1,4 @@
-APP_TITLE = "Gate Server"
+APP_TITLE = "3D Printer Server"
 SUPER_ADMIN = "admin@email.com"                 # Set the admin email to receive notification when a new user attempts to login
 
 SMTP_SERVER = "your smtp server without ssl"

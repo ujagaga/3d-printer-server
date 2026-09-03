@@ -1,5 +1,6 @@
 *.db
 *.FCStd
+!hardware/UART_Relay/Casing3D.FCStd
 *.FCStd1
 *.idea
 __pycache__
