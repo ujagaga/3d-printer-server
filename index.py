@@ -14,6 +14,7 @@ import database
 import helper
 from authlib.integrations.flask_client import OAuth
 import logging
+import hmac
 import threading
 from logging.handlers import RotatingFileHandler
 import settings
@@ -118,32 +119,35 @@ threading.Thread(
 
 csrf = CSRFProtect(application)
 
-CLIENT_SECRETS_FILE = "client_secret.json"
+CLIENT_SECRETS_FILE = getattr(settings, 'GOOGLE_CLIENT_SECRETS_FILE', 'client_secret.json')
+if not os.path.isabs(CLIENT_SECRETS_FILE):
+    CLIENT_SECRETS_FILE = os.path.join(os.path.dirname(__file__), CLIENT_SECRETS_FILE)
+GOOGLE_OAUTH_ENABLED = not application.debug and os.path.isfile(CLIENT_SECRETS_FILE)
+google = None
+oauth = None
+client_secrets = None
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-if application.debug:
-    google = None
-else:
-    if os.path.isfile(CLIENT_SECRETS_FILE):
-        with open(CLIENT_SECRETS_FILE) as f:
-            client_secrets = json.load(f)['web']  # Assumes the JSON structure is under 'web'
+if GOOGLE_OAUTH_ENABLED:
+    with open(CLIENT_SECRETS_FILE) as f:
+        client_secrets = json.load(f)['web']  # Assumes the JSON structure is under 'web'
 
-        # Configure OAuth
-        oauth = OAuth(application)
+    # Configure OAuth
+    oauth = OAuth(application)
 
-        google = oauth.register(
-            name='google',
-            client_id=client_secrets['client_id'],
-            client_secret=client_secrets['client_secret'],
-            access_token_url=client_secrets['token_uri'],
-            access_token_params=None,
-            authorize_url=client_secrets['auth_uri'],
-            authorize_params=None,
-            api_base_url='https://www.googleapis.com/oauth2/v1/',
-            userinfo_endpoint='https://www.googleapis.com/oauth2/v3/userinfo',
-            client_kwargs={'scope': 'email'},
-            server_metadata_url='https://accounts.google.com/.well-known/openid-configuration'
-        )
+    google = oauth.register(
+        name='google',
+        client_id=client_secrets['client_id'],
+        client_secret=client_secrets['client_secret'],
+        access_token_url=client_secrets['token_uri'],
+        access_token_params=None,
+        authorize_url=client_secrets['auth_uri'],
+        authorize_params=None,
+        api_base_url='https://www.googleapis.com/oauth2/v1/',
+        userinfo_endpoint='https://www.googleapis.com/oauth2/v3/userinfo',
+        client_kwargs={'scope': 'email'},
+        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration'
+    )
 
 '''
 On a CGI hosting, the flasks url_for populates the url with script path,
@@ -182,13 +186,34 @@ def teardown_request(exception):
 
 @application.route('/authorize')
 def authorize():
+    if not GOOGLE_OAUTH_ENABLED:
+        return redirect(safe_url_for('login'))
     auth_url = safe_url_for('oauth2callback')
     return google.authorize_redirect(f"https://{request.host}{auth_url}")
 
 
-@application.route('/login', methods=['GET'])
+@application.route('/login', methods=['GET', 'POST'])
 def login():
-    if application.debug:
+    if not GOOGLE_OAUTH_ENABLED:
+        if request.method == 'GET':
+            return render_template(
+                'signin.html',
+                title=settings.APP_TITLE,
+                url_for=safe_url_for,
+                local_login=True
+            )
+
+        configured_password = getattr(settings, 'SUPER_ADMIN_PASSWORD', '')
+        submitted_email = request.form.get('email', '')
+        submitted_password = request.form.get('password', '')
+        email_matches = hmac.compare_digest(submitted_email, settings.SUPER_ADMIN)
+        password_matches = bool(configured_password) and hmac.compare_digest(
+            submitted_password, configured_password
+        )
+        if not email_matches or not password_matches:
+            flash('Invalid email or password.')
+            return redirect(safe_url_for('login'))
+
         token = helper.generate_token()
         user_email = settings.SUPER_ADMIN
         user = database.get_user(connection=g.db, email=user_email)
@@ -201,16 +226,20 @@ def login():
         response.set_cookie('token', token, max_age=settings.MAX_COOKIE_AGE, expires=time.time() + settings.MAX_COOKIE_AGE)
         return response
 
-    return render_template('signin.html', title=settings.APP_TITLE, url_for=safe_url_for)
+    return render_template(
+        'signin.html',
+        title=settings.APP_TITLE,
+        url_for=safe_url_for,
+        local_login=False
+    )
 
 
 @application.route('/oauth2callback')
 def oauth2callback():
     global google
 
-    if application.debug:
-        # Just redirect to index, since login is automatic in /login for debug
-        return redirect(safe_url_for('index'))
+    if not GOOGLE_OAUTH_ENABLED:
+        return redirect(safe_url_for('login'))
 
     try:
         google.authorize_access_token()

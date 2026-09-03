@@ -139,7 +139,9 @@ Production OAuth requires HTTPS. A reverse tunnel or reverse proxy should route 
 7. Download the client configuration, rename it to `client_secret.json`, and place it in the project root beside `index.py`.
 8. Set `SUPER_ADMIN` in `settings.py` to the Google account that should become the initial administrator, then restart `3d-printer-server.service`.
 
-`client_secret.json` contains credentials and is ignored by Git. Do not commit or publish it. OAuth is bypassed when Flask debug mode is enabled.
+`GOOGLE_CLIENT_SECRETS_FILE` in `settings.py` can select a different credential file. Relative paths are resolved from the project root. The default `client_secret.json` contains credentials and is ignored by Git; do not commit or publish it.
+
+When the configured credential file is absent, or Flask debug mode is enabled, Google OAuth is bypassed. The `/login` page then accepts the `SUPER_ADMIN` email and `SUPER_ADMIN_PASSWORD` configured in `settings.py`. Use a strong, unique password; the fallback grants full administrator access and should be exposed only over HTTPS or on a trusted local network.
 
 See Google's [OAuth web-server application guide](https://developers.google.com/identity/protocols/oauth2/web-server) and [audience configuration guide](https://support.google.com/cloud/answer/15549945) for current console details.
 
