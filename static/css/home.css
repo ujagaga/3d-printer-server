@@ -1,0 +1,182 @@
+/* Container for device buttons - keep horizontal layout */
+.container {
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  justify-content: center; /* center buttons horizontally */
+  gap: 0.5rem;             /* spacing between buttons */
+  flex-wrap: nowrap;        /* prevent wrapping onto multiple lines */
+  margin-bottom: 1rem;     /* space under the row */
+}
+
+/* For single button devices, center it */
+.row.single {
+  justify-content: center;
+}
+
+/* Big buttons styling */
+.big_btn {
+  flex: 1 1 auto;            /* buttons grow/shrink equally */
+  max-width: 150px;
+  min-width: 60px;
+  aspect-ratio: 1/1;         /* square buttons */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  border-radius: 50%;
+  border: none;
+  color: #fff;
+  background-color: var(--accent-color);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.big_btn i {
+  pointer-events: none; /* ensure clicks target the button, not icon */
+}
+
+/* Active state (temporary flash) */
+.big_btn.active {
+  background-color: #00c853;
+}
+
+/* If you want device sections stacked vertically */
+h1 {
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.print_progress {
+  position: relative;
+  height: 1.65rem;
+  margin: 0.6rem auto;
+  width: min(90%, 700px);
+  overflow: hidden;
+  border-radius: 0.85rem;
+  background: #d8e0e6;
+  text-align: center;
+  line-height: 1.65rem;
+  box-shadow: inset 0 1px 3px rgba(23, 33, 43, 0.18);
+}
+
+.print_progress_bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: linear-gradient(90deg, #1596d2, #2fc07d);
+  transition: width 0.4s ease;
+}
+
+.print_progress span {
+  position: relative;
+  z-index: 1;
+  font-weight: bold;
+  color: #111;
+}
+
+.stop_print_btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  background-color: var(--danger);
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 1rem;
+  color: #fff;
+  cursor: pointer;
+}
+
+.stop_print_btn:hover {
+  background-color: #a31515;
+}
+
+.stop_print_btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.hero-body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-grow: 1;
+  overflow: hidden;
+  padding: 0;
+}
+
+#video_container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+#video_container img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+/* Experimental local theme */
+#video_container {
+  position: relative;
+  padding: 5px;
+  border: 1px solid rgba(0, 215, 255, 0.22);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(0, 215, 255, 0.12), rgba(255, 176, 32, 0.05));
+  box-sizing: border-box;
+  box-shadow: 0 0 45px rgba(0, 215, 255, 0.08);
+}
+
+#video_container::before,
+#video_container::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  pointer-events: none;
+}
+
+#video_container::before {
+  top: -1px;
+  left: -1px;
+  border-top: 3px solid var(--accent-color);
+  border-left: 3px solid var(--accent-color);
+  border-radius: 12px 0 0;
+}
+
+#video_container::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 3px solid var(--warning);
+  border-bottom: 3px solid var(--warning);
+  border-radius: 0 0 12px;
+}
+
+.print_progress {
+  color: #dffcff;
+  background: #101e29;
+  border: 1px solid rgba(0, 215, 255, 0.25);
+}
+
+.print_progress_bar {
+  background: linear-gradient(90deg, #00a7c7, #00df9a);
+  box-shadow: 0 0 18px rgba(0, 223, 154, 0.45);
+}
+
+.print_progress span { color: #f1fdff; text-shadow: 0 1px 3px #000; }
+
+.stop_print_btn {
+  box-shadow: 0 0 0 3px rgba(255, 64, 93, 0.12), 0 0 20px rgba(255, 64, 93, 0.25);
+}

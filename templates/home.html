@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+
+  <div class="user_picture_wrapper">
+    <img src="{{ user.picture }}" alt="User Picture" class="user_picture">
+  </div>
+
+
+  <nav class="admin_nav">
+   {% if admin %}
+    <a href="{{ url_for('manage_users') }}" class="nav_btn manage_users_btn" title="Manage Users">
+      <i class="fa-solid fa-user-tie"></i>
+      {% if unauthorized_users|length > 0 %}
+      <span class="red_dot"></span>
+      {% endif %}
+    </a>
+    {% endif %}
+
+    {% if video_devices %}
+      <div class="nav_btn">
+        <i class="fa-solid fa-camera"></i>
+        <select name="device" id="device">
+          {% for dev in video_devices %}
+          <option value="{{dev}}" {% if dev==device %} selected {% endif %}>{{ loop.index0 }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <select name="resolution" id="resolution" class="nav_btn">
+        {% for dev in video_devices %}
+        {% if dev==device %}
+        {% for res in video_devices[dev] %}
+        <option value="{{res}}" {% if res==resolution %} selected {% endif %}>{{res}}</option>
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+      </select>
+
+      {% endif %}
+
+      <a href="{{ url_for('printer_settings') }}" id="printer_settings_btn" class="nav_btn" title="Printer Settings" {% if not printer_connected %}hidden{% endif %}>
+        <i class="fa-solid fa-gear"></i>
+      </a>
+
+  </nav>
+
+  <div id="print_progress" class="print_progress" hidden>
+    <div id="print_progress_bar" class="print_progress_bar"></div>
+    <span id="print_progress_text">0%</span>
+  </div>
+
+  <div class="hero-body">
+    <div id="video_container">
+      <img src="{{ stream_url }}" id="stream_img"/>
+    </div>
+  </div>
+
+<script src="{{ url_for('static', filename='js/home.js') }}"></script>
+
+{% endblock %}

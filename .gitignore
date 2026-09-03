@@ -1,0 +1,10 @@
+*.db
+*.FCStd
+*.FCStd1
+*.idea
+__pycache__
+*runner.pid
+config.py
+settings.py
+client_secret.json
+.venv

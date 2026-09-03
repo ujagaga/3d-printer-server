@@ -1,0 +1,33 @@
+{
+    "files.autoSave": "onFocusChange",
+    "quickCommandButtons.buttons": [
+        {
+            "color": "#FFD700",
+            "command": "claude",
+            "insertOnly": false,
+            "name": "$(robot) Claude",
+            "useVsCodeApi": false
+        },
+        {
+            "color": "#8BC34A",
+            "command": "./tools/build.sh",
+            "insertOnly": false,
+            "name": "$(check-all) Build",
+            "useVsCodeApi": false
+        },
+        {
+            "color": "#2196F3",
+            "command": "./tools/upload_usb.sh",
+            "insertOnly": false,
+            "name": "🔌 Upload",
+            "useVsCodeApi": false
+        },
+        {
+            "color": "#8BC34A",
+            "command": "stty -F /dev/ttyUSB0 115200 raw && cat /dev/ttyUSB0",
+            "insertOnly": false,
+            "name": "🔌 ttyUSB0@115200",
+            "useVsCodeApi": false
+        }
+    ]
+}

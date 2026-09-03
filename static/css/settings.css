@@ -1,0 +1,126 @@
+.sd_files {
+  width: min(calc(100% - 2rem), 900px);
+  margin: 0 auto 1.5rem;
+  border-collapse: collapse;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.sd_files th, .sd_files td {
+  text-align: left;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--border);
+  word-break: break-word;
+}
+
+.sd_files th {
+  color: var(--text-muted);
+  background: #eaf0f4;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sd_files tr:last-child td {
+  border-bottom: 0;
+}
+
+.sd_files tr:hover td {
+  background: #f7fafc;
+}
+
+.sd_files td:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sd_files form {
+  margin: 0;
+}
+
+.printer_message {
+  width: min(calc(100% - 3rem), 700px);
+  margin: 0.75rem auto;
+  padding: 0.8rem 1rem;
+  text-align: center;
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.printer_message.success {
+  color: #087a2f;
+  background: #e9f8ee;
+}
+
+.printer_message.error {
+  color: #c00;
+  background: #fff0f1;
+}
+
+.upload_form {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem auto 1.5rem;
+}
+
+.upload_btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.1rem;
+}
+
+@media (max-width: 600px) {
+  .sd_files { width: calc(100% - 1rem); }
+  .sd_files th, .sd_files td { padding: 0.65rem 0.55rem; }
+  .sd_files td:first-child { font-size: 0.88rem; }
+}
+
+/* Experimental local theme */
+.sd_files {
+  border: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+}
+
+.sd_files th {
+  color: #7feaff;
+  background: rgba(0, 215, 255, 0.09);
+}
+
+.sd_files td { border-color: var(--border); }
+.sd_files tr:hover td { background: rgba(0, 215, 255, 0.07); }
+
+.printer_message {
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+}
+
+.printer_message.success {
+  color: #78f5ba;
+  background: rgba(0, 201, 131, 0.12);
+  border-color: rgba(0, 201, 131, 0.3);
+}
+
+.printer_message.error {
+  color: #ff8798;
+  background: rgba(255, 64, 93, 0.12);
+  border-color: rgba(255, 64, 93, 0.28);
+}
+
+.upload_btn {
+  box-shadow: 0 0 0 5px rgba(0, 215, 255, 0.08), 0 0 30px rgba(0, 215, 255, 0.18);
+}
+
+.upload_btn.disabled {
+  cursor: wait;
+  opacity: 0.5;
+  pointer-events: none;
+}

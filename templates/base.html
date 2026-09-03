@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>{{ title or "WiFi Relay Control" }}</title>
+
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fontawesome.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/solid.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/brands.min.css') }}">
+
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+
+</head>
+<body>
+  <div class="page-wrapper">
+    <div class="container">
+      {% block content %}{% endblock %}
+    </div>
+
+  <footer class="footer">
+    {% if printer_connected is defined %}
+      <button type="button" id="stop_print" class="stop_print_btn" title="Stop the running print" aria-label="Stop the running print" hidden>
+        <i class="fa-solid fa-stop"></i>
+      </button>
+    {% endif %}
+    {% if relays %}
+      {% for relay, state in relays.items() %}
+        <div class="relay-control">
+          <label title="{% if relay.endswith('_1') %}Printer power{% elif relay.endswith('_2') %}Auxiliary power{% else %}Relay power{% endif %}">
+            {% if relay.endswith('_1') %}
+              <i class="fa-solid fa-power-off"></i>
+            {% elif relay.endswith('_2') %}
+              <i class="fa-solid fa-charging-station"></i>
+            {% else %}
+              {{ relay }}
+            {% endif %}
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="{{ relay }}" aria-label="{% if relay.endswith('_1') %}Printer power{% elif relay.endswith('_2') %}Auxiliary power{% else %}Relay power{% endif %}" {% if state %}checked{% endif %} onchange="toggleRelay('{{ relay }}', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+      {% endfor %}
+    {% endif %}
+    <a href="https://github.com/ujagaga/office-api-server" target="_blank" style="margin-left:2em;">Documentation</a>
+  </footer>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

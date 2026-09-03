@@ -1,0 +1,32 @@
+APP_TITLE = "Gate Server"
+SUPER_ADMIN = "admin@email.com"                 # Set the admin email to receive notification when a new user attempts to login
+
+SMTP_SERVER = "your smtp server without ssl"
+SMTP_PORT = 587
+SMTP_USER = "account_mail@smtp.server"
+SMTP_PASS = "user_account_password"
+SMTP_STARTTLS = False
+
+SUBJECT = "Monitor.radinaradionica Notification"
+USTREAMER_SCRIPT = 'ustreamer.sh'
+USTREAMER_URL = "http://localhost:8013/stream"
+STREAM_TIMEOUT=60
+
+APP_SECRET_KEY = 'SomeSuperSecretKey123'        # Used for flask secure communication
+MAX_COOKIE_AGE = 60 * 60 * 24 * 30              # If you use the same browser, it will be 30 days until you are asked to login
+
+DB_NAME = "database.db"
+
+UART_SW_PORT = "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"   # Relay board; by-id path, as /dev/ttyUSB* numbers shift
+UART_SW_BAUD = 9600                             # Baud rate of the 2-relay board protocol; the 1-relay CDC board is auto-probed at 115200
+RELAY_TCP_PORT = 5032                           # Local port the persistent relay service listens on
+PRINTER_POWER_CONTROL = "serial"                # "serial" for the UART relay, or "usb" for uhubctl
+
+PRINTER_PORT = "/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0"   # 3D printer; the port only exists while the relay powers it
+PRINTER_BAUD = 115200                           # Marlin baud rate
+PRINTER_TCP_PORT = 5031                         # Local port the printer service listens on
+
+GUARD_RELAY = True                              # Set False to control the relay without logging in (development only)
+
+USB3_TEST_HUB_LOCATION = "1-1"                  # uhubctl hub location used when PRINTER_POWER_CONTROL is "usb"
+USB3_TEST_PORT = 1                              # Switchable USB port that controls printer power

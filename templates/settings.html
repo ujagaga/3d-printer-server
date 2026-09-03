@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+
+  <div class="user_picture_wrapper">
+    <img src="{{ user.picture }}" alt="Your Picture" class="user_picture">
+  </div>
+
+  <nav class="admin_nav">
+    <a href="/" class="nav_btn" title="Home"><i class="fa-solid fa-home"></i></a>
+  </nav>
+
+  <h1>Printer SD Card</h1>
+
+  <form class="upload_form" method="post" action="{{ url_for('upload_printer_file') }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="file" id="gcode_file" name="gcode_file" accept=".gcode,.gco,.g" required hidden>
+    <label for="gcode_file" class="save_btn upload_btn" title="Upload to printer SD card" aria-label="Upload to printer SD card" role="button" tabindex="0">
+      <i class="fa-solid fa-upload"></i>
+    </label>
+  </form>
+  <p id="upload_status" class="printer_message" hidden></p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <p class="printer_message {{ category }}">{{ message }}</p>
+    {% endfor %}
+  {% endwith %}
+
+  {% if upload_active %}
+    <p>The file list will refresh when the upload finishes.</p>
+  {% elif sd_files is none %}
+    <p class="red_notification">Could not read the SD card. Check that the printer is powered on.</p>
+  {% elif sd_files %}
+    <table class="sd_files">
+      <tr><th>File</th><th>Size</th><th></th></tr>
+      {% for f in sd_files %}
+      <tr>
+        <td>{{ f.name }}</td>
+        <td>{% if f.size %}{{ (f.size / 1048576) | round(2) }} MB{% endif %}</td>
+        <td>
+          <form method="post" action="{{ url_for('start_printer') }}" onsubmit="return confirm('Start printing this file?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="filename" value="{{ f.name }}">
+            <button type="submit" class="save_btn" title="Start print" aria-label="Start print">
+              <i class="fa-solid fa-play"></i>
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p>No files on the SD card.</p>
+  {% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+{% endblock %}
