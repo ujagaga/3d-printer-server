@@ -90,3 +90,27 @@
 .update_buttons .save_btn.remove_btn {
     background-color: #b33;
 }
+
+/* Narrow page content similar to settings list */
+.narrow_container {
+  width: min(calc(100% - 2rem), 900px);
+  margin: 0 auto 1.25rem;
+}
+
+.device_row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.device_card.device_config {
+  flex: 1 1 auto;
+}
+
+.update_buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
