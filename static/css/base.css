@@ -369,8 +369,8 @@ body::before {
 
 h1 {
   color: var(--text);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  text-transform: none;
+  letter-spacing: 0.02em;
   font-weight: 700;
   text-shadow: 0 0 24px rgba(0, 215, 255, 0.22);
 }
