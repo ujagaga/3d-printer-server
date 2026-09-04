@@ -398,9 +398,24 @@ h1 {
 }
 
 .nav_btn select,
-select.nav_btn {
+select.nav_btn,
+.nav_btn select,
+.nav_btn > select {
   color: #dffbff;
   background-color: #102332;
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(223,251,255,0.9) 50%),
+    linear-gradient(135deg, rgba(223,251,255,0.9) 50%, transparent 50%),
+    linear-gradient(to right, rgba(255,255,255,0.06), rgba(255,255,255,0.06));
+  background-position: calc(100% - 18px) calc(0.5em + 2px), calc(100% - 13px) calc(0.5em + 2px), 100% 0;
+  background-size: 5px 5px, 5px 5px, 1px 1.5em;
+  background-repeat: no-repeat;
 }
 
 .save_btn {
