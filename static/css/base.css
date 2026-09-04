@@ -448,3 +448,12 @@ input:checked + .slider {
   background: #00c983;
   box-shadow: 0 0 16px rgba(0, 201, 131, 0.35);
 }
+
+/* Ensure select elements that use the nav button styling remain dark in all contexts */
+select.nav_btn,
+.nav_btn > select,
+.nav_btn select {
+  background-color: #102332 !important;
+  color: #dffbff !important;
+  border-color: rgba(255,255,255,0.06) !important;
+}
