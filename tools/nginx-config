@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+# Interactive script to add this Flask app as an nginx site and issue a
+# cert, or inspect currently configured sites.
+
+set -e
+
+usage() {
+  cat <<EOF
+Usage: nginx-config [OPTION]
+
+With no options, shows this help.
+
+Options:
+  -a, --add           Interactively add a new nginx site (reverse proxy to
+                      a local backend port) and enable it. Must be run as
+                      root.
+  -l, --list          List currently configured sites and the backend
+                      port(s) they proxy to
+  -r, --remove NAME   Remove a site (matched by domain or site name from
+                      --list). Must be run as root.
+  -h, --help          Show this help
+EOF
+}
+
+add_site() {
+  if [ "$EUID" -ne 0 ]; then
+    echo "Run as root (sudo nginx-config --add)"
+    exit 1
+  fi
+
+  if ! command -v nginx >/dev/null; then
+    echo "Error: nginx not found."
+    exit 1
+  fi
+
+  if ! command -v certbot >/dev/null; then
+    echo "certbot not found. Installing (snap)..."
+    apt update -y
+    apt install -y certbot python3-certbot-nginx
+  fi
+
+  read -rp "Domain (e.g. relay.example.com): " DOMAIN
+  if [ -z "$DOMAIN" ]; then
+    echo "Domain required."
+    exit 1
+  fi
+
+  read -rp "Backend port (for /): " PORT
+  if [ -z "$PORT" ]; then
+    echo "Port required."
+    exit 1
+  fi
+
+  EXTRA_LOCATIONS=()
+  while true; do
+    read -rp "Additional location path (blank to finish, e.g. /camera-stream/): " LOC
+    [ -z "$LOC" ] && break
+    read -rp "Backend port for $LOC: " LPORT
+    if [ -z "$LPORT" ]; then
+      echo "Port required."
+      continue
+    fi
+    EXTRA_LOCATIONS+=("$LOC:$LPORT")
+  done
+
+  CONF_PATH="/etc/nginx/sites-available/${DOMAIN}.conf"
+
+  if [ -e "$CONF_PATH" ]; then
+    echo "Error: $CONF_PATH already exists. Aborting."
+    exit 1
+  fi
+
+  cat <<EOF > "$CONF_PATH"
+server {
+    listen 80;
+    server_name ${DOMAIN};
+
+    location / {
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+EOF
+
+  for entry in "${EXTRA_LOCATIONS[@]}"; do
+    loc="${entry%%:*}"
+    lport="${entry##*:}"
+    cat <<EOF >> "$CONF_PATH"
+
+    location ${loc} {
+        proxy_pass http://127.0.0.1:${lport};
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+EOF
+  done
+
+  echo "}" >> "$CONF_PATH"
+
+  ln -s "$CONF_PATH" "/etc/nginx/sites-enabled/${DOMAIN}.conf"
+
+  echo "Testing nginx config..."
+  nginx -t
+
+  echo "Reloading nginx..."
+  systemctl reload nginx
+
+  echo "Done. Site: https://${DOMAIN}"
+  echo "  / -> 127.0.0.1:${PORT}"
+  for entry in "${EXTRA_LOCATIONS[@]}"; do
+    echo "  ${entry%%:*} -> 127.0.0.1:${entry##*:}"
+  done
+}
+
+list_sites() {
+  for link in /etc/nginx/sites-enabled/*; do
+    [ -e "$link" ] || continue
+    conf=$(readlink -f "$link")
+    name=$(basename "$link")
+
+    domains=$(grep -ohP 'server_name\s+\K[^;]+' "$conf" \
+      | tr ' ' '\n' | grep -v '^_$' | grep -v '^$' | sort -u | paste -sd ' ')
+
+    routes=$( { grep -noP 'location\s+\K[^{]+' "$conf" | sed 's/[[:space:]]*$//;s/^/L:/'; \
+                grep -noP 'proxy_pass\s+http://127\.0\.0\.1:\K[0-9]+' "$conf" | sed 's/^/P:/'; } \
+              | sort -t: -k2,2n \
+              | awk -F: '$1=="L"{loc=$3} $1=="P"{print loc"->"$3}' \
+              | sort -u | paste -sd ' ')
+
+    printf '%-35s %-35s %s\n' "$name" "${domains:-?}" "${routes:-none}"
+  done
+}
+
+remove_site() {
+  local target="$1"
+  if [ -z "$target" ]; then
+    echo "Usage: nginx-config --remove <domain-or-site-name>"
+    exit 1
+  fi
+  if [ "$EUID" -ne 0 ]; then
+    echo "Run as root (sudo nginx-config --remove $target)"
+    exit 1
+  fi
+
+  local matches=()
+  for link in /etc/nginx/sites-enabled/*; do
+    [ -e "$link" ] || continue
+    conf=$(readlink -f "$link")
+    if [ "$(basename "$link")" = "$target" ] \
+      || grep -qP "server_name\s+[^;]*\b${target}\b" "$conf"; then
+      matches+=("$link")
+    fi
+  done
+
+  if [ ${#matches[@]} -eq 0 ]; then
+    echo "No site found matching '$target'."
+    exit 1
+  fi
+  if [ ${#matches[@]} -gt 1 ]; then
+    echo "Multiple sites match '$target', be more specific (use exact name from --list):"
+    for m in "${matches[@]}"; do
+      echo "  $(basename "$m")"
+    done
+    exit 1
+  fi
+
+  link="${matches[0]}"
+  conf=$(readlink -f "$link")
+  echo "About to remove:"
+  echo "  symlink: $link"
+  echo "  config:  $conf"
+  read -rp "Confirm removal? [y/N]: " CONFIRM
+  if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
+    echo "Aborted."
+    exit 0
+  fi
+
+  domains=$(grep -ohP 'server_name\s+\K[^;]+' "$conf" \
+    | tr ' ' '\n' | grep -v '^_$' | grep -v '^$' | sort -u)
+
+  rm "$link"
+  rm "$conf"
+
+  echo "Testing nginx config..."
+  nginx -t
+
+  echo "Reloading nginx..."
+  systemctl reload nginx
+
+  echo "Removed."
+
+  if command -v certbot >/dev/null; then
+    for d in $domains; do
+      for certdir in /etc/letsencrypt/live/"$d"*; do
+        [ -d "$certdir" ] || continue
+        certname=$(basename "$certdir")
+        read -rp "Also delete Let's Encrypt cert '$certname'? [y/N]: " DELCERT
+        if [ "$DELCERT" = "y" ] || [ "$DELCERT" = "Y" ]; then
+          certbot delete --cert-name "$certname"
+        fi
+      done
+    done
+  fi
+}
+
+case "$1" in
+  -a|--add)
+    add_site
+    ;;
+  -l|--list)
+    list_sites
+    ;;
+  -r|--remove)
+    remove_site "$2"
+    ;;
+  -h|--help|"")
+    usage
+    ;;
+  *)
+    echo "Unknown option: $1"
+    usage
+    exit 1
+    ;;
+esac

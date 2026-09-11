@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Lists listening ports used by python processes, to help pick a free
+# port before running setup_nginx.sh.
+
+#if [ "$EUID" -ne 0 ]; then
+#  echo "Run as root (sudo ./show_python_ports.sh) to see process names."
+#  exit 1
+#fi
+
+sudo ss -ltnp | grep -i gunicorn
