@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', function() {
           }
           alert('Print stopped.');
         })
-        .catch(error => alert(error.message))
+        .catch(error => showStatus(error.message))
         .finally(() => { stopPrintButton.disabled = false; });
       });
     }

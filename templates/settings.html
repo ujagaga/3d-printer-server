@@ -23,18 +23,10 @@
       <i class="fa-solid fa-upload"></i>
     </label>
   </form>
-  <p id="upload_status" class="printer_message" hidden></p>
-
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for category, message in messages %}
-      <p class="printer_message {{ category }}">{{ message }}</p>
-    {% endfor %}
-  {% endwith %}
-
   {% if upload_active %}
     <p id="upload_pending">The file list will refresh when the upload finishes.</p>
   {% elif sd_files is none %}
-    <p class="red_notification">Could not read the SD card. Check that the printer is powered on.</p>
+
   {% elif sd_files %}
     <table class="sd_files">
       <tr><th>File</th><th>Size</th><th></th></tr>
@@ -69,4 +61,8 @@
 
 {% block scripts %}
   <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+{% endblock %}
+
+{% block status_message %}
+  {% if sd_files is none %}Could not read the SD card. Check that the printer is powered on.{% endif %}
 {% endblock %}

@@ -267,7 +267,7 @@ h1 {
 @media only screen and (max-width: 767px) {
   .container { min-width: 100vw; width: 100%; }
   .footer { gap: 1rem; }
-  .footer a { display: none; }
+  .footer { font-size: 0.8rem; }
 }
 
 @media (orientation: landscape) {
@@ -456,4 +456,16 @@ select.nav_btn,
   background-color: #102332 !important;
   color: #dffbff !important;
   border-color: rgba(255,255,255,0.06) !important;
+}
+
+.status_message {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.footer .documentation_link {
+  margin-left: auto;
+  flex-shrink: 0;
 }

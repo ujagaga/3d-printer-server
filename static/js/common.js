@@ -1,3 +1,7 @@
+function showStatus(message) {
+  document.getElementById('status_message').textContent = message;
+}
+
 function toggleRelay(relayId, checked) {
   const state = checked ? 1 : 0;
   const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -14,12 +18,12 @@ function toggleRelay(relayId, checked) {
   .then(response => response.json())
   .then(data => {
     if (data.status !== "ok") {
-      console.log("Failed to set relay: " + data.error);
+      showStatus("Failed to set relay: " + data.error);
       document.getElementById(relayId).checked = !checked;
     }
   })
   .catch(err => {
-    console.log("Error: " + err);
+    showStatus("Could not set relay: " + err.message);
     document.getElementById(relayId).checked = !checked;
   });
 }

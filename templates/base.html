@@ -50,7 +50,12 @@
         </div>
       {% endfor %}
     {% endif %}
-    <a href="https://github.com/ujagaga/3d-printer-server" target="_blank" style="margin-left:2em;">Documentation</a>
+    <span id="status_message" class="status_message" role="status" aria-live="polite" aria-atomic="true">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}{{ messages | join(' ') }}{% else %}{% block status_message %}{% endblock %}{% endif %}
+      {% endwith %}
+    </span>
+    <a class="documentation_link" href="https://github.com/ujagaga/3d-printer-server" target="_blank" rel="noopener">Documentation</a>
   </footer>
   </div>
 

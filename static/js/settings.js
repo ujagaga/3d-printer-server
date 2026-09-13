@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function () {
-  const statusElement = document.getElementById('upload_status');
+  const statusElement = document.getElementById('status_message');
   const uploadForm = document.querySelector('.upload_form');
   const fileInput = document.getElementById('gcode_file');
   const uploadButton = document.querySelector('.upload_btn');
@@ -42,7 +42,6 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (status.state === 'error') {
           const pending = document.getElementById('upload_pending');
           if (pending) pending.textContent = 'Upload stopped. Refresh to see the SD files.';
-          statusElement.classList.add('error');
           statusElement.textContent = status.error || 'Upload failed.';
         }
       })
