@@ -3,6 +3,14 @@ document.addEventListener('DOMContentLoaded', function () {
   const uploadForm = document.querySelector('.upload_form');
   const fileInput = document.getElementById('gcode_file');
   const uploadButton = document.querySelector('.upload_btn');
+  document.querySelectorAll('.delete_file_form').forEach(form => {
+    form.addEventListener('submit', event => {
+      const filename = form.elements.filename.value;
+      if (!window.confirm(`Delete ${filename} from the SD card? This cannot be undone.`)) {
+        event.preventDefault();
+      }
+    });
+  });
 
   fileInput.addEventListener('change', function () {
     if (!fileInput.files.length) return;

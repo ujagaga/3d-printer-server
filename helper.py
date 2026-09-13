@@ -274,6 +274,23 @@ def start_printer_sd_file(filename):
     return printer_command_succeeded(printer_request('M24'))
 
 
+def delete_printer_sd_file(filename):
+    """Delete a listed file only when the printer is confirmed idle."""
+    if not filename or not re.fullmatch(r'/?[A-Za-z0-9_~./-]+', filename):
+        return False
+    if '..' in filename.split('/'):
+        return False
+    if printer_print_status()['state'] != 'idle':
+        return False
+    files = list_printer_sd_files()
+    if files is None or filename not in {item['name'] for item in files}:
+        return False
+    if not printer_command_succeeded(printer_request(f'M30 {filename}')):
+        return False
+    files = list_printer_sd_files()
+    return files is not None and filename not in {item['name'] for item in files}
+
+
 def stop_printer_sd_print():
     """Immediately abort the active SD-card print."""
     return printer_command_succeeded(printer_request('M524'))

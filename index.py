@@ -461,6 +461,18 @@ def start_printer():
     return redirect(safe_url_for('printer_settings'))
 
 
+@application.route('/printer/delete', methods=['POST'])
+def delete_printer_file():
+    if not get_logged_in_user():
+        return redirect(safe_url_for('login'))
+    filename = request.form.get('filename', '')
+    if helper.delete_printer_sd_file(filename):
+        flash(f'Deleted {filename}.', 'success')
+    else:
+        flash('Could not delete the file. The printer must be idle and the file must still exist.', 'error')
+    return redirect(safe_url_for('printer_settings'))
+
+
 @application.route('/printer/stop', methods=['POST'])
 def stop_printer():
     global _print_monitor_stop_requested

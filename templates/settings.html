@@ -50,6 +50,13 @@
               <i class="fa-solid fa-play"></i>
             </button>
           </form>
+          <form method="post" action="{{ url_for('delete_printer_file') }}" class="delete_file_form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="filename" value="{{ f.name }}">
+            <button type="submit" class="save_btn" title="Delete {{ f.name }}" aria-label="Delete {{ f.name }}">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </form>
         </td>
       </tr>
       {% endfor %}
