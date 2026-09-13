@@ -30,7 +30,10 @@ document.addEventListener('DOMContentLoaded', function () {
           setTimeout(refreshUploadStatus, 2000);
         } else if (status.state === 'complete') {
           statusElement.textContent = `Upload complete: ${status.filename}`;
+          if (document.getElementById('upload_pending')) window.location.reload();
         } else if (status.state === 'error') {
+          const pending = document.getElementById('upload_pending');
+          if (pending) pending.textContent = 'Upload stopped. Refresh to see the SD files.';
           statusElement.classList.add('error');
           statusElement.textContent = status.error || 'Upload failed.';
         }

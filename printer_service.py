@@ -108,13 +108,23 @@ class Printer:
                 raise RuntimeError('Printer response timed out')
 
             self.serial.reset_input_buffer()
-            send(f'M28 {filename}'.encode('ascii'))
-            with open(path, 'rb') as source:
-                for line in source:
-                    if line.strip():
-                        send(line)
-                    progress['written'] += len(line)
-            send(b'M29')
+            try:
+                send(f'M28 {filename}'.encode('ascii'))
+                with open(path, 'rb') as source:
+                    for line in source:
+                        # Marlin ignores comment-only lines without sending ok.
+                        command = line.split(b';', 1)[0].strip()
+                        if command:
+                            send(command)
+                        progress['written'] += len(line)
+                send(b'M29')
+            except Exception:
+                # Leave SD write mode even when a transfer fails.
+                try:
+                    send(b'M29')
+                except Exception:
+                    logger.exception('Could not close failed SD upload')
+                raise
 
 
 printer = Printer()
