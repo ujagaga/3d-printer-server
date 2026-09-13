@@ -126,7 +126,22 @@
 }
 
 .upload_btn.disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.5;
   pointer-events: none;
+}
+
+.sd_files button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sd_files .active_print td {
+  background: rgba(0, 201, 131, 0.12);
+}
+
+.active_print_label {
+  color: #78f5ba;
+  font-weight: bold;
+  margin-left: 0.5rem;
 }

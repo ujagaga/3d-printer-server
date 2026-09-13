@@ -108,7 +108,11 @@ For a local camera stream:
 USTREAMER_URL = "http://localhost:8013/stream"
 ```
 
-For a public deployment, point this at the externally routed camera endpoint. `STREAM_TIMEOUT` controls how long a stream process remains alive without a page request refreshing it.
+For a public deployment, point this at the externally routed camera endpoint. The stream stays running while a home page is connected to it. `STREAM_TIMEOUT` controls how many seconds the camera remains running after the last viewer disconnects (0 disables idle shutdown), using uStreamer's `--exit-on-no-clients` option. It does not limit viewing time.
+
+The printer bridge keeps the last complete SD file listing in memory. Settings refreshes it while the printer is idle and shows the cached listing during printing, uploads, or failed reads. Open settings once while idle to populate it. The cache survives web restarts but is cleared when the printer bridge restarts; it may be stale if the SD card changes.
+
+Set `POWER_OFF_WHEN_DONE = False` (or `True`) in `settings.py` to choose the default automatic power-off behavior for each new print. During printing, the home page shows a “Power off when done” checkbox beside the power switch. Its choice is shared across browsers and continues to apply after the page closes. After a print changes to idle, the completion monitor switches printer power off through the configured serial relay or USB control, within its two-minute polling interval. Stopping a print through the app or losing printer connectivity does not trigger automatic power-off. The per-print choice is held in printer-bridge memory and is lost when that service restarts.
 
 ### Authentication
 

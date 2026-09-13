@@ -141,6 +141,56 @@ class Printer:
 printer = Printer()
 upload_lock = threading.Lock()
 upload_status = {'state': 'idle', 'filename': None, 'written': 0, 'size': 0, 'error': None}
+sd_files_lock = threading.Lock()
+sd_files_cache = None
+selected_sd_file = None
+active_sd_file = None
+print_started_at = None
+power_off_when_done = bool(getattr(settings, 'POWER_OFF_WHEN_DONE', False))
+print_seen_running = False
+power_off_pending = False
+command_lock = threading.Lock()
+
+
+def power_off_printer():
+    if getattr(settings, 'PRINTER_POWER_CONTROL', 'serial') == 'usb':
+        import helper
+        return helper.set_usb3_test_state(settings.USB3_TEST_HUB_LOCATION, settings.USB3_TEST_PORT, 0)
+    from uart_switch import RelayServiceController
+    return RelayServiceController(getattr(settings, 'RELAY_TCP_PORT', 5032)).set_socket(0, 0) is not None
+
+
+def remember_print_file(command, reply):
+    global selected_sd_file, active_sd_file, print_started_at
+    global power_off_when_done, print_seen_running, power_off_pending
+    if not reply:
+        return
+    lowered = [line.lower() for line in reply]
+    success = any(line.startswith('ok') for line in lowered) and not any(
+        marker in line for line in lowered for marker in ('error:', 'failed'))
+    with sd_files_lock:
+        if command.startswith('M23 '):
+            selected_sd_file = command[4:].strip() if success else None
+            power_off_pending = False
+        elif command == 'M24' and success:
+            active_sd_file = selected_sd_file
+            power_off_pending = False
+            if print_started_at is None:
+                print_started_at = time.time()
+                power_off_when_done = bool(getattr(settings, 'POWER_OFF_WHEN_DONE', False))
+            print_seen_running = True
+        elif command == 'M27' and any(re.search(r'(?:sd|tf) printing byte\s+\d+\s*/\s*[1-9]\d*', line) for line in lowered):
+            print_seen_running = True
+        elif (command == 'M524' and success) or (
+                command == 'M27' and any('not sd printing' in line for line in lowered)):
+            active_sd_file = None
+            selected_sd_file = None
+            print_started_at = None
+            power_off_pending = command == 'M27' and (power_off_pending or (print_seen_running and power_off_when_done))
+            print_seen_running = False
+        elif reply == ['offline']:
+            print_seen_running = False
+            power_off_pending = False
 
 
 def run_upload(filename, path):
@@ -162,8 +212,31 @@ class RequestHandler(socketserver.StreamRequestHandler):
     timeout = 20        # do not let a client that never sends hold a thread
 
     def handle(self):
+        global sd_files_cache
+        global power_off_when_done, power_off_pending
         line = self.rfile.readline().decode('ascii', 'replace').strip()
         if not line:
+            return
+
+        if line in ('?power-off-when-done', '?power-off-when-done 0', '?power-off-when-done 1'):
+            with sd_files_lock:
+                if ' ' in line:
+                    power_off_when_done = line.endswith(' 1')
+                    if not power_off_when_done:
+                        power_off_pending = False
+                enabled = power_off_when_done
+            self.wfile.write((json.dumps(enabled) + '\n').encode('ascii'))
+            return
+
+        if line == '?power-off-if-done':
+            with command_lock, sd_files_lock:
+                if power_off_pending:
+                    power_off_pending = False
+                    reply = printer.command('M27')
+                    idle = reply and any('not sd printing' in item.lower() for item in reply)
+                    if idle and not power_off_printer():
+                        logger.error('Automatic printer power off failed')
+            self.wfile.write(b'ok\n')
             return
 
         if line == '?status':
@@ -174,6 +247,24 @@ class RequestHandler(socketserver.StreamRequestHandler):
             with upload_lock:
                 status = dict(upload_status)
             self.wfile.write((json.dumps(status) + '\n').encode('utf-8'))
+            return
+
+        if line == '?sd-files-cache':
+            with sd_files_lock:
+                cached = sd_files_cache
+            self.wfile.write((json.dumps(cached) + '\n').encode('ascii'))
+            return
+
+        if line == '?active-sd-file':
+            with sd_files_lock:
+                filename = active_sd_file
+            self.wfile.write((json.dumps(filename) + '\n').encode('ascii'))
+            return
+
+        if line == '?print-started-at':
+            with sd_files_lock:
+                started_at = print_started_at
+            self.wfile.write((json.dumps(started_at) + '\n').encode('ascii'))
             return
 
         if line.startswith('?upload '):
@@ -219,7 +310,14 @@ class RequestHandler(socketserver.StreamRequestHandler):
             self.wfile.write(b'busy\n')
             return
 
-        reply = printer.command(line)
+        with command_lock:
+            reply = printer.command(line)
+            remember_print_file(line, reply if reply is not None else ['offline'])
+        if (line == 'M20' and reply is not None
+                and 'Begin file list' in reply and 'End file list' in reply
+                and reply.index('Begin file list') < reply.index('End file list')):
+            with sd_files_lock:
+                sd_files_cache = list(reply)
         if reply is None:
             self.wfile.write(b"offline\n")
         else:

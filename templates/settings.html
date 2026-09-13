@@ -18,34 +18,40 @@
 
   <form class="upload_form" method="post" action="{{ url_for('upload_printer_file') }}" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="file" id="gcode_file" name="gcode_file" accept=".gcode,.gco,.g" required hidden>
-    <label for="gcode_file" class="save_btn upload_btn" title="Upload to printer SD card" aria-label="Upload to printer SD card" role="button" tabindex="0">
+    <input type="file" id="gcode_file" name="gcode_file" accept=".gcode,.gco,.g" required hidden {% if file_actions_disabled %}disabled{% endif %}>
+    <label for="gcode_file" class="save_btn upload_btn{% if file_actions_disabled %} disabled{% endif %}" title="Upload to printer SD card" aria-label="Upload to printer SD card" role="button" aria-disabled="{{ 'true' if file_actions_disabled else 'false' }}" tabindex="{{ -1 if file_actions_disabled else 0 }}">
       <i class="fa-solid fa-upload"></i>
     </label>
   </form>
   {% if upload_active %}
     <p id="upload_pending">The file list will refresh when the upload finishes.</p>
-  {% elif sd_files is none %}
+  {% endif %}
+  {% if sd_files_cached %}
+    <p>Showing the last saved file list. Reopen this page when the printer is idle to refresh it.</p>
+  {% endif %}
+  {% if sd_files is none %}
+    <p>No saved file list is available. Open this page when the printer is idle to load it.</p>
 
   {% elif sd_files %}
     <table class="sd_files">
       <tr><th>File</th><th>Size</th><th></th></tr>
       {% for f in sd_files %}
-      <tr>
-        <td>{{ f.name }}</td>
+      {% set is_active = active_file and f.name.lstrip('/')|upper == active_file %}
+      <tr{% if is_active %} class="active_print"{% endif %}>
+        <td>{{ f.name }}{% if is_active %} <span class="active_print_label">Printing</span>{% endif %}</td>
         <td>{% if f.size %}{{ (f.size / 1048576) | round(2) }} MB{% endif %}</td>
         <td>
           <form method="post" action="{{ url_for('start_printer') }}" onsubmit="return confirm('Start printing this file?');">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="filename" value="{{ f.name }}">
-            <button type="submit" class="save_btn" title="Start print" aria-label="Start print">
+            <button type="submit" class="save_btn" title="Start print" aria-label="Start print" {% if file_actions_disabled %}disabled{% endif %}>
               <i class="fa-solid fa-play"></i>
             </button>
           </form>
           <form method="post" action="{{ url_for('delete_printer_file') }}" class="delete_file_form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="filename" value="{{ f.name }}">
-            <button type="submit" class="save_btn" title="Delete {{ f.name }}" aria-label="Delete {{ f.name }}">
+            <button type="submit" class="save_btn" title="Delete {{ f.name }}" aria-label="Delete {{ f.name }}" {% if file_actions_disabled %}disabled{% endif %}>
               <i class="fa-solid fa-trash"></i>
             </button>
           </form>

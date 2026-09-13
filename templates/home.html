@@ -49,9 +49,17 @@
 
   </nav>
 
-  <div id="print_progress" class="print_progress" hidden>
-    <div id="print_progress_bar" class="print_progress_bar"></div>
-    <span id="print_progress_text">0%</span>
+  <div id="print_progress" class="print_status" hidden>
+    <div class="print_details">
+      <div class="print_progress">
+        <div id="print_progress_bar" class="print_progress_bar"></div>
+        <span id="print_progress_text">0%</span>
+      </div>
+      <div id="print_eta" class="print_eta">Estimating time remaining…</div>
+    </div>
+    <button type="button" id="stop_print" class="stop_print_btn" title="Stop the running print" aria-label="Stop the running print" hidden>
+      <i class="fa-solid fa-stop"></i>
+    </button>
   </div>
 
   <div class="hero-body">

@@ -1,5 +1,14 @@
 var socket;
 var videoReadyTimer;
+var printStartedAt = null;
+
+function formatPrintEta(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return 'Estimating time remaining…';
+    if (seconds < 60) return 'Estimated remaining: less than a minute';
+    const minutes = Math.ceil(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    return `Estimated remaining: ${hours ? `${hours}h ` : ''}${minutes % 60}m`;
+}
 
 function resizeVideo() {
     const videoContainer = document.getElementById('video_container');
@@ -64,22 +73,62 @@ document.addEventListener('DOMContentLoaded', function() {
     const printProgress = document.getElementById('print_progress');
     const printProgressBar = document.getElementById('print_progress_bar');
     const printProgressText = document.getElementById('print_progress_text');
+    const printEta = document.getElementById('print_eta');
     const printerSettingsButton = document.getElementById('printer_settings_btn');
+    const powerOffOption = document.getElementById('power_off_when_done');
+    const powerOffWrapper = document.getElementById('power_off_when_done_wrapper');
+    let powerOffSaving = false;
+    let powerOffRevision = 0;
+
+    if (powerOffOption) {
+      powerOffOption.addEventListener('change', async () => {
+        const enabled = powerOffOption.checked;
+        powerOffRevision += 1;
+        powerOffSaving = true;
+        powerOffOption.disabled = true;
+        try {
+          const response = await fetch('/printer/power-off-when-done', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content},
+            body: JSON.stringify({enabled}),
+          });
+          if (!response.ok) throw new Error('Could not update automatic power off');
+        } catch (error) {
+          powerOffOption.checked = !enabled;
+          showStatus(error.message);
+        } finally {
+          powerOffSaving = false;
+          powerOffOption.disabled = false;
+        }
+      });
+    }
 
     function refreshPrintProgress() {
       if (!printProgress) return;
+      const revision = powerOffRevision;
       fetch('/printer/print/status', {credentials: 'same-origin'})
         .then(response => response.json())
         .then(status => {
           const online = status.state === 'idle' || status.state === 'printing';
           const printing = status.state === 'printing';
+          if (powerOffWrapper) powerOffWrapper.hidden = !printing;
+          if (powerOffOption && !powerOffSaving && revision === powerOffRevision) {
+            powerOffOption.checked = status.power_off_when_done === true;
+          }
           if (printerSettingsButton) printerSettingsButton.hidden = !online;
           printProgress.hidden = !printing;
           if (stopPrintButton) stopPrintButton.hidden = !printing;
+          printStartedAt = printing ? status.started_at ?? null : null;
           if (printing) {
             const percent = Number(status.percent) || 0;
             printProgressBar.style.width = `${percent}%`;
             printProgressText.textContent = `${percent}%`;
+            if (printEta) {
+              printEta.textContent = printStartedAt === null
+                ? 'Time remaining unavailable (start time unknown)'
+                : formatPrintEta(status.remaining_seconds);
+            }
           }
           resizeVideo();
         })

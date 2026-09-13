@@ -11,6 +11,7 @@ SMTP_STARTTLS = False
 SUBJECT = "Monitor.radinaradionica Notification"
 USTREAMER_SCRIPT = 'ustreamer.sh'
 USTREAMER_URL = "http://localhost:8013/stream"
+# Stop the camera after this many seconds without viewers (0 disables idle shutdown).
 STREAM_TIMEOUT=60
 
 APP_SECRET_KEY = 'SomeSuperSecretKey123'        # Used for flask secure communication
@@ -23,6 +24,7 @@ UART_SW_PORT = "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"   # Relay boar
 UART_SW_BAUD = 9600                             # Baud rate of the 2-relay board protocol; the 1-relay CDC board is auto-probed at 115200
 RELAY_TCP_PORT = 5032                           # Local port the persistent relay service listens on
 PRINTER_POWER_CONTROL = "serial"                # "serial" for the UART relay, or "usb" for uhubctl
+POWER_OFF_WHEN_DONE = False                     # Default for each new print; can be changed on the home page
 
 PRINTER_PORT = "/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0"   # 3D printer; the port only exists while the relay powers it
 PRINTER_BAUD = 115200                           # Marlin baud rate

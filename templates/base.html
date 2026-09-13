@@ -26,11 +26,6 @@
     </div>
 
   <footer class="footer">
-    {% if printer_connected is defined %}
-      <button type="button" id="stop_print" class="stop_print_btn" title="Stop the running print" aria-label="Stop the running print" hidden>
-        <i class="fa-solid fa-stop"></i>
-      </button>
-    {% endif %}
     {% if relays %}
       {% for relay, state in relays.items() %}
         <div class="relay-control">
@@ -47,6 +42,12 @@
             <input type="checkbox" id="{{ relay }}" aria-label="{% if relay.endswith('_1') %}Printer power{% elif relay.endswith('_2') %}Auxiliary power{% else %}Relay power{% endif %}" {% if state %}checked{% endif %} onchange="toggleRelay('{{ relay }}', this.checked)">
             <span class="slider"></span>
           </label>
+          {% if relay.endswith('_1') %}
+          <label id="power_off_when_done_wrapper" class="power_off_when_done" hidden>
+            <input type="checkbox" id="power_off_when_done">
+            Power off when done
+          </label>
+          {% endif %}
         </div>
       {% endfor %}
     {% endif %}

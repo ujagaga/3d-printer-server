@@ -2,7 +2,7 @@
 
 if [[ "$#" -lt 2 ]]; then
     echo "Usage:"
-    echo "$0 start <device_id> <resolution> <timeout>"
+    echo "$0 start <device_id> <resolution> <idle_timeout>"
     echo "    or"
     echo "$0 stop"
     exit 1
@@ -30,11 +30,9 @@ case "${OPERATION}" in
         fi
 
         ustreamer --allow-origin=\* --host=0.0.0.0 --port=8013 --device=/dev/video${DEVICE_ID} --workers=3 --drop-same-frames=30 --slowdown \
-            -r ${RESOLUTION} 2>&1 &
+            --exit-on-no-clients "${TIMEOUT}" -r ${RESOLUTION} 2>&1 &
         USTREAMER_PID=$!
         echo $USTREAMER_PID > ${PID_FILE_PATH}
-
-        (sleep ${TIMEOUT} && kill $USTREAMER_PID) &
 
         if ps -p $USTREAMER_PID > /dev/null
         then

@@ -2,11 +2,36 @@ function showStatus(message) {
   document.getElementById('status_message').textContent = message;
 }
 
-function toggleRelay(relayId, checked) {
+async function toggleRelay(relayId, checked) {
+  const toggle = document.getElementById(relayId);
   const state = checked ? 1 : 0;
   const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  toggle.disabled = true;
+  try {
+    if (!checked && relayId.endsWith('_1')) {
+      let printState;
+      try {
+        const response = await fetch('/printer/print/status', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+        if (!response.ok) throw new Error('Could not check print status');
+        printState = (await response.json()).state;
+      } catch (_) {
+        printState = 'unavailable';
+      }
+      const warning = printState === 'printing'
+        ? 'A print is in progress. Turning off printer power will stop it. Turn off printer power?'
+        : printState !== 'idle'
+          ? 'Could not confirm that the printer is idle. Turning off power may stop a print. Turn off printer power?'
+          : null;
+      if (warning && !window.confirm(warning)) {
+        toggle.checked = true;
+        return;
+      }
+    }
 
-  fetch("/relay", {
+    const response = await fetch("/relay", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -14,18 +39,17 @@ function toggleRelay(relayId, checked) {
     },
     credentials: "same-origin",       // 👈 Include cookies/session
     body: JSON.stringify({ relay_id: relayId, state: state }),
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.status !== "ok") {
-      showStatus("Failed to set relay: " + data.error);
-      document.getElementById(relayId).checked = !checked;
+    });
+    const data = await response.json();
+    if (!response.ok || data.status !== "ok") {
+      throw new Error(data.error || 'Failed to set relay');
     }
-  })
-  .catch(err => {
+  } catch (err) {
     showStatus("Could not set relay: " + err.message);
-    document.getElementById(relayId).checked = !checked;
-  });
+    toggle.checked = !checked;
+  } finally {
+    toggle.disabled = false;
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function () {

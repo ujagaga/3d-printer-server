@@ -103,8 +103,11 @@ def _print_completion_monitor():
                     _print_monitor_was_printing = False
                     _print_monitor_stop_requested = False
 
-            if should_notify:
-                _send_print_finished_email()
+            try:
+                if should_notify:
+                    _send_print_finished_email()
+            finally:
+                helper.printer_request('?power-off-if-done')
         except Exception:
             logger.exception('Print completion monitor failed')
 
@@ -433,12 +436,18 @@ def printer_settings():
 
     upload_status = helper.printer_upload_status()
     upload_active = upload_status and upload_status.get('state') in ('receiving', 'uploading')
+    print_state = 'uploading' if upload_active else helper.printer_print_status()['state']
+    sd_files, sd_files_cached = helper.printer_sd_files_for_display(upload_active, print_state)
+    active_file = helper.printer_active_sd_file() if print_state == 'printing' else None
     return render_template(
         'settings.html',
         user=user,
         title=settings.APP_TITLE,
         url_for=safe_url_for,
-        sd_files=[] if upload_active else helper.list_printer_sd_files(),
+        sd_files=sd_files,
+        sd_files_cached=sd_files_cached,
+        file_actions_disabled=print_state != 'idle' or sd_files_cached,
+        active_file=active_file.lstrip('/').upper() if active_file else None,
         upload_active=upload_active
     )
 
@@ -521,7 +530,23 @@ def printer_file_upload_status():
 def printer_current_print_status():
     if not get_logged_in_user():
         return jsonify({'status': 'error', 'error': 'Not logged in'}), 401
-    return jsonify(helper.printer_print_status())
+    status = helper.printer_print_status()
+    reply = helper.printer_request('?power-off-when-done')
+    status['power_off_when_done'] = reply == ['true']
+    return jsonify(status)
+
+
+@application.route('/printer/power-off-when-done', methods=['POST'])
+def set_power_off_when_done():
+    if not get_logged_in_user():
+        return jsonify({'error': 'Not logged in'}), 401
+    enabled = request.get_json().get('enabled')
+    if not isinstance(enabled, bool):
+        return jsonify({'error': 'Invalid value'}), 400
+    reply = helper.printer_request(f'?power-off-when-done {int(enabled)}')
+    if reply != [json.dumps(enabled)]:
+        return jsonify({'error': 'Could not update automatic power off'}), 502
+    return jsonify({'power_off_when_done': enabled})
 
 
 @application.route('/manage_users', methods=['GET'])

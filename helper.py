@@ -13,6 +13,7 @@ import os
 import subprocess
 import socket
 import json
+import time
 
 logger = logging.getLogger(__name__)
 DATE_FORMAT = "%Y-%m-%d"
@@ -227,7 +228,12 @@ def list_printer_sd_files():
     """Ask Marlin for the SD card listing (M20). Returns a list of {"name", "size"} dicts, or
     None if the printer could not be reached. Size is in bytes, or None when not reported."""
     lines = printer_request('M20')
-    if lines is None or lines == ['offline']:
+    return parse_printer_sd_files(lines)
+
+
+def parse_printer_sd_files(lines):
+    if (not lines or 'Begin file list' not in lines or 'End file list' not in lines
+            or lines.index('Begin file list') >= lines.index('End file list')):
         return None
 
     files = []
@@ -239,12 +245,36 @@ def list_printer_sd_files():
             break
         elif listing:
             parts = line.split()
-            if parts[0].startswith("/TRASH"):
+            if not parts or parts[0].startswith("/TRASH"):
                 continue
             size = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
             files.append({"name": parts[0], "size": size})
 
     return files
+
+
+def printer_sd_files_for_display(upload_active=False, print_state=None):
+    """Use the shared bridge cache when a fresh listing is unsafe or unavailable."""
+    if not upload_active and (print_state or printer_print_status()['state']) == 'idle':
+        files = list_printer_sd_files()
+        if files is not None:
+            return files, False
+    reply = printer_request('?sd-files-cache')
+    try:
+        lines = json.loads('\n'.join(reply)) if reply else None
+        files = parse_printer_sd_files(lines)
+    except (ValueError, TypeError):
+        files = None
+    return files, files is not None
+
+
+def printer_active_sd_file():
+    reply = printer_request('?active-sd-file')
+    try:
+        filename = json.loads('\n'.join(reply)) if reply else None
+        return filename if isinstance(filename, str) else None
+    except (ValueError, TypeError):
+        return None
 
 
 def printer_command_succeeded(lines):
@@ -262,6 +292,8 @@ def printer_command_succeeded(lines):
 def start_printer_sd_file(filename):
     """Select an existing SD-card file and start printing it."""
     if not filename or any(char in filename for char in ('\r', '\n')):
+        return False
+    if printer_print_status()['state'] != 'idle':
         return False
 
     files = list_printer_sd_files()
@@ -344,11 +376,26 @@ def printer_print_status():
         if match:
             current, total = (int(value) for value in match.groups())
             percent = min(100, round(current * 100 / total, 1)) if total else 0
+            started_at = None
+            remaining_seconds = None
+            if total:
+                reply = printer_request('?print-started-at')
+                try:
+                    value = json.loads('\n'.join(reply)) if reply else None
+                    if isinstance(value, (int, float)) and not isinstance(value, bool) and 0 < value <= time.time():
+                        started_at = value
+                        if current > 0:
+                            elapsed = time.time() - started_at
+                            remaining_seconds = max(0, round(elapsed * (total - current) / current))
+                except (ValueError, TypeError):
+                    pass
             return {
                 'state': 'printing' if total else 'idle',
                 'percent': percent,
                 'current': current,
-                'total': total
+                'total': total,
+                'started_at': started_at,
+                'remaining_seconds': remaining_seconds,
             }
         if 'not sd printing' in line.lower():
             return {'state': 'idle', 'percent': 0, 'current': 0, 'total': 0}

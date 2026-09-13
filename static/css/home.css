@@ -1,4 +1,12 @@
 /* Container for device buttons - keep horizontal layout */
+.power_off_when_done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
 .container {
   padding-bottom: 0;
   overflow: hidden;
@@ -51,11 +59,28 @@ h1 {
   margin-bottom: 0.5rem;
 }
 
+.print_status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.6rem auto;
+  width: min(90%, 700px);
+}
+
+.print_details {
+  flex: 1;
+  min-width: 0;
+}
+
+.print_eta {
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
 .print_progress {
   position: relative;
   height: 1.65rem;
-  margin: 0.6rem auto;
-  width: min(90%, 700px);
   overflow: hidden;
   border-radius: 0.85rem;
   background: #d8e0e6;
@@ -80,6 +105,7 @@ h1 {
 }
 
 .stop_print_btn {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
