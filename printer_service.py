@@ -92,18 +92,29 @@ class Printer:
             if self.serial is None:
                 raise RuntimeError('Printer is offline')
 
+            received = bytearray()
+
             def send(line):
                 self.serial.write(line.rstrip(b'\r\n') + b'\n')
-                self.serial.flush()
-                deadline = time.time() + REPLY_TIMEOUT
+                # The acknowledgment proves delivery; tcdrain adds a redundant
+                # USB/serial wait to every line of a potentially huge file.
+                deadline = time.monotonic() + REPLY_TIMEOUT
                 errors = []
-                while time.time() < deadline:
-                    reply = self.serial.readline().decode('ascii', 'replace').strip()
+                while time.monotonic() < deadline:
+                    if b'\n' not in received:
+                        # pySerial readline reads one byte at a time. Consume
+                        # available bytes together, retaining partial replies.
+                        received.extend(self.serial.read(self.serial.in_waiting or 1))
+                        continue
+                    raw, _, rest = received.partition(b'\n')
+                    received[:] = rest
+                    reply = raw.decode('ascii', 'replace').strip()
                     if reply.startswith('ok'):
                         if errors:
                             raise RuntimeError(errors[-1])
                         return
-                    if 'error' in reply.lower() or 'failed' in reply.lower():
+                    if ('error' in reply.lower() or 'failed' in reply.lower()
+                            or reply.lower().startswith(('resend:', 'rs '))):
                         errors.append(reply)
                 raise RuntimeError('Printer response timed out')
 
