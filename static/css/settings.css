@@ -37,7 +37,13 @@
 }
 
 .sd_files form {
+  display: inline-block;
+  vertical-align: middle;
   margin: 0;
+}
+
+.sd_files form + form {
+  margin-left: 0.5rem;
 }
 
 .printer_message {
