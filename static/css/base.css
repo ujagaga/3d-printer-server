@@ -198,6 +198,12 @@ h1 {
     font-size: 28px;
 }
 
+.relay-control {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
 /* User info */
 .user_picture_wrapper {
   position: absolute;

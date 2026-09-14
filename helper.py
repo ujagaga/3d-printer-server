@@ -331,14 +331,18 @@ def stop_printer_sd_print():
     Stock Creality firmware has no M524, and its M27 keeps reporting the selected
     file until the card is released, so mirror what the LCD stop does: drop the
     SD job and the queued moves, park the head, cool down and unmount the card."""
-    if not printer_command_succeeded(printer_request('M25')):
-        return False
-
-    for command in ('M410', 'M26 S0', 'G91', 'G1 Z10 F600', 'G90', 'G28 X Y',
+    for command in ('M25', 'M410', 'M26 S0', 'G91', 'G1 Z10 F600', 'G90', 'G28 X Y',
                     'M104 S0', 'M140 S0', 'M107', 'M84', 'M22'):
         printer_request(command)
 
-    return printer_print_status()['state'] == 'idle'
+    # Marlin floods busy messages while a print runs, so single replies get lost
+    # or truncated. Confirm the printer really stopped instead of trusting acks.
+    for attempt in range(3):
+        if printer_print_status()['state'] == 'idle':
+            return True
+        time.sleep(1)
+
+    return False
 
 
 def sd_upload_filename(filename):
@@ -385,7 +389,8 @@ def printer_print_status():
         return {'state': 'offline', 'percent': 0, 'current': 0, 'total': 0}
 
     for line in lines:
-        match = re.search(r'(?:SD|TF) printing byte\s+(\d+)\s*/\s*(\d+)', line, re.IGNORECASE)
+        # The card name prefix is dropped when a reply arrives truncated.
+        match = re.search(r'printing byte\s+(\d+)\s*/\s*(\d+)', line, re.IGNORECASE)
         if match:
             current, total = (int(value) for value in match.groups())
             percent = min(100, round(current * 100 / total, 1)) if total else 0

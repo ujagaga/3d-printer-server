@@ -179,7 +179,7 @@ def remember_print_file(command, reply):
                 print_started_at = time.time()
                 power_off_when_done = bool(getattr(settings, 'POWER_OFF_WHEN_DONE', False))
             print_seen_running = True
-        elif command == 'M27' and any(re.search(r'(?:sd|tf) printing byte\s+\d+\s*/\s*[1-9]\d*', line) for line in lowered):
+        elif command == 'M27' and any(re.search(r'printing byte\s+\d+\s*/\s*[1-9]\d*', line) for line in lowered):
             print_seen_running = True
         elif (command == 'M25' and success) or (
                 command == 'M27' and any(re.search(r'not (?:sd|tf) printing', line) for line in lowered)):
