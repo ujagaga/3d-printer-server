@@ -181,8 +181,8 @@ def remember_print_file(command, reply):
             print_seen_running = True
         elif command == 'M27' and any(re.search(r'(?:sd|tf) printing byte\s+\d+\s*/\s*[1-9]\d*', line) for line in lowered):
             print_seen_running = True
-        elif (command == 'M524' and success) or (
-                command == 'M27' and any('not sd printing' in line for line in lowered)):
+        elif (command == 'M25' and success) or (
+                command == 'M27' and any(re.search(r'not (?:sd|tf) printing', line) for line in lowered)):
             active_sd_file = None
             selected_sd_file = None
             print_started_at = None
@@ -233,7 +233,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
                 if power_off_pending:
                     power_off_pending = False
                     reply = printer.command('M27')
-                    idle = reply and any('not sd printing' in item.lower() for item in reply)
+                    idle = reply and any(re.search(r'not (?:sd|tf) printing', item, re.IGNORECASE) for item in reply)
                     if idle and not power_off_printer():
                         logger.error('Automatic printer power off failed')
             self.wfile.write(b'ok\n')

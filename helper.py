@@ -282,7 +282,7 @@ def printer_command_succeeded(lines):
     if not lines or lines == ['offline']:
         return False
 
-    error_markers = ('error:', 'failed', 'not sd printing')
+    error_markers = ('error:', 'failed', 'not sd printing', 'not tf printing', 'unknown command')
     lowered = [line.lower() for line in lines]
     return any(line.startswith('ok') for line in lowered) and not any(
         marker in line for line in lowered for marker in error_markers
@@ -300,6 +300,7 @@ def start_printer_sd_file(filename):
     if files is None or filename not in {item['name'] for item in files}:
         return False
 
+    printer_request('M21')
     if not printer_command_succeeded(printer_request(f'M23 {filename}')):
         return False
 
@@ -317,6 +318,7 @@ def delete_printer_sd_file(filename):
     files = list_printer_sd_files()
     if files is None or filename not in {item['name'] for item in files}:
         return False
+    printer_request('M21')
     if not printer_command_succeeded(printer_request(f'M30 {filename}')):
         return False
     files = list_printer_sd_files()
@@ -324,8 +326,19 @@ def delete_printer_sd_file(filename):
 
 
 def stop_printer_sd_print():
-    """Immediately abort the active SD-card print."""
-    return printer_command_succeeded(printer_request('M524'))
+    """Abort the active SD-card print.
+
+    Stock Creality firmware has no M524, and its M27 keeps reporting the selected
+    file until the card is released, so mirror what the LCD stop does: drop the
+    SD job and the queued moves, park the head, cool down and unmount the card."""
+    if not printer_command_succeeded(printer_request('M25')):
+        return False
+
+    for command in ('M410', 'M26 S0', 'G91', 'G1 Z10 F600', 'G90', 'G28 X Y',
+                    'M104 S0', 'M140 S0', 'M107', 'M84', 'M22'):
+        printer_request(command)
+
+    return printer_print_status()['state'] == 'idle'
 
 
 def sd_upload_filename(filename):
@@ -397,7 +410,7 @@ def printer_print_status():
                 'started_at': started_at,
                 'remaining_seconds': remaining_seconds,
             }
-        if 'not sd printing' in line.lower():
+        if re.search(r'not (?:sd|tf) printing', line, re.IGNORECASE):
             return {'state': 'idle', 'percent': 0, 'current': 0, 'total': 0}
 
     return {'state': 'unknown', 'percent': 0, 'current': 0, 'total': 0}

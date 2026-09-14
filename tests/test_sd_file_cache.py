@@ -44,13 +44,13 @@ class CacheTests(unittest.TestCase):
             off.assert_called_once()
 
     def test_auto_power_off_ignores_abort_disconnect_and_new_print(self):
-        for ending in ('M524', 'offline', 'new_print', 'disabled'):
+        for ending in ('M25', 'offline', 'new_print', 'disabled'):
             with self.subTest(ending=ending):
                 self.setUp()
                 bridge.remember_print_file('M24', ['ok'])
                 self.request('?power-off-when-done 1')
-                if ending == 'M524':
-                    bridge.remember_print_file('M524', ['ok'])
+                if ending == 'M25':
+                    bridge.remember_print_file('M25', ['ok'])
                 elif ending == 'offline':
                     bridge.remember_print_file('M27', ['offline'])
                 else:
@@ -108,7 +108,7 @@ class CacheTests(unittest.TestCase):
         self.assertIsNone(bridge.active_sd_file)
         bridge.remember_print_file('M23 TEST.GCO', ['ok'])
         bridge.remember_print_file('M24', ['ok'])
-        bridge.remember_print_file('M524', ['ok'])
+        bridge.remember_print_file('M25', ['ok'])
         self.assertIsNone(bridge.active_sd_file)
 
     def test_start_rejected_while_printing(self):
