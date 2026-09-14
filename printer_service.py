@@ -46,6 +46,10 @@ class Printer:
                     self.serial = serial.Serial(settings.PRINTER_PORT, settings.PRINTER_BAUD, timeout=2)
                     time.sleep(SETTLE_TIME)
                     self.serial.reset_input_buffer()
+                    # The board restores the SD position of the last print on boot,
+                    # so M27 would report a print that is not running. Release the
+                    # card to clear it; power loss resume is not used here.
+                    self._command('M22')
                     logger.info("Printer connected")
                 except Exception as e:
                     logger.error(f"ERROR opening printer port: {e}")
@@ -62,28 +66,32 @@ class Printer:
     def command(self, line):
         """Send one G-code line and collect the reply. Returns None if the printer is not there."""
         with self.lock:
-            if self.serial is None:
-                return None
+            return self._command(line)
 
-            reply = []
-            try:
-                self.serial.reset_input_buffer()
-                self.serial.write(line.encode('ascii') + b"\n")
-                self.serial.flush()
+    def _command(self, line):
+        """Send one G-code line with the serial lock already held."""
+        if self.serial is None:
+            return None
 
-                deadline = time.time() + REPLY_TIMEOUT
-                while time.time() < deadline:
-                    got = self.serial.readline().decode('ascii', 'replace').strip()
-                    if not got:
-                        continue
-                    reply.append(got)
-                    if got.startswith('ok'):
-                        break
-            except Exception as e:
-                logger.error(f"ERROR during printer command: {e}")
-                return None
+        reply = []
+        try:
+            self.serial.reset_input_buffer()
+            self.serial.write(line.encode('ascii') + b"\n")
+            self.serial.flush()
 
-            return reply
+            deadline = time.time() + REPLY_TIMEOUT
+            while time.time() < deadline:
+                got = self.serial.readline().decode('ascii', 'replace').strip()
+                if not got:
+                    continue
+                reply.append(got)
+                if got.startswith('ok'):
+                    break
+        except Exception as e:
+            logger.error(f"ERROR during printer command: {e}")
+            return None
+
+        return reply
 
     def upload(self, filename, path, progress):
         """Write a spooled G-code file to the printer SD card without allowing
