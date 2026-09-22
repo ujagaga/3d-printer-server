@@ -88,6 +88,12 @@ h1 {
   transform: translateY(-1px);
 }
 
+.nav_btn.disabled {
+  opacity: 0.4;
+  filter: grayscale(1);
+  pointer-events: none;
+}
+
 .nav_btn:focus-visible, .save_btn:focus-visible, .delete_btn:focus-visible,
 .stop_print_btn:focus-visible, .switch input:focus-visible + .slider {
   outline: 3px solid rgba(22, 135, 199, 0.35);

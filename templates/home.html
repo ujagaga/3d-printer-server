@@ -1,5 +1,16 @@
 {% extends "base.html" %}
 
+{% block footer_controls %}
+  <div class="bed_control">
+    <button type="button" class="bed_btn" data-position="back" title="Send the bed back" aria-label="Send the bed back" disabled>
+      <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <button type="button" class="bed_btn" data-position="front" title="Bring the bed forward" aria-label="Bring the bed forward" disabled>
+      <i class="fa-solid fa-arrow-down"></i>
+    </button>
+  </div>
+{% endblock %}
+
 {% block content %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
 
@@ -43,7 +54,7 @@
 
       {% endif %}
 
-      <a href="{{ url_for('printer_settings') }}" id="printer_settings_btn" class="nav_btn" title="Printer Settings" {% if not printer_connected %}hidden{% endif %}>
+      <a href="{{ url_for('printer_settings') }}" id="printer_settings_btn" class="nav_btn{% if not printer_connected %} disabled{% endif %}" title="Printer Settings" aria-disabled="{{ 'false' if printer_connected else 'true' }}" tabindex="{{ '0' if printer_connected else '-1' }}">
         <i class="fa-solid fa-gear"></i>
       </a>
 

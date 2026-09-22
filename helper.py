@@ -18,6 +18,7 @@ import time
 logger = logging.getLogger(__name__)
 DATE_FORMAT = "%Y-%m-%d"
 current_path = os.path.dirname(os.path.realpath(__file__))
+BED_Y_MAX = 220                 # Ender-style bed travel; Y max brings the bed to the front
 
 def generate_token():
     return ''.join(random.choices(string.ascii_letters, k=32))
@@ -343,6 +344,17 @@ def stop_printer_sd_print():
         time.sleep(1)
 
     return False
+
+
+def move_printer_bed(to_front):
+    """Home Y, then run the bed out to the front when asked, so a finished print
+    can be reached. Marlin blocks until G28 finishes, so its 'ok' can outlast the
+    bridge reply timeout; a reachable printer counts as success."""
+    if printer_print_status()['state'] != 'idle':
+        return False
+
+    commands = ['G28 Y'] + (['G90', f'G1 Y{BED_Y_MAX} F3000'] if to_front else [])
+    return all(printer_request(command) not in (None, ['offline'], ['busy']) for command in commands)
 
 
 def sd_upload_filename(filename):

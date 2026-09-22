@@ -77,6 +77,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const printerSettingsButton = document.getElementById('printer_settings_btn');
     const powerOffOption = document.getElementById('power_off_when_done');
     const powerOffWrapper = document.getElementById('power_off_when_done_wrapper');
+    const bedButtons = document.querySelectorAll('.bed_btn');
+    let bedBusy = false;
+    let bedIdle = false;
+
+    function updateBedButtons() {
+      bedButtons.forEach(button => { button.disabled = bedBusy || !bedIdle; });
+    }
+
     let powerOffSaving = false;
     let powerOffRevision = 0;
 
@@ -116,7 +124,13 @@ document.addEventListener('DOMContentLoaded', function() {
           if (powerOffOption && !powerOffSaving && revision === powerOffRevision) {
             powerOffOption.checked = status.power_off_when_done === true;
           }
-          if (printerSettingsButton) printerSettingsButton.hidden = !online;
+          if (printerSettingsButton) {
+            printerSettingsButton.classList.toggle('disabled', !online);
+            printerSettingsButton.setAttribute('aria-disabled', String(!online));
+            printerSettingsButton.tabIndex = online ? 0 : -1;
+          }
+          bedIdle = status.state === 'idle';
+          updateBedButtons();
           printProgress.hidden = !printing;
           if (stopPrintButton) stopPrintButton.hidden = !printing;
           printStartedAt = printing ? status.started_at ?? null : null;
@@ -165,6 +179,26 @@ document.addEventListener('DOMContentLoaded', function() {
         .finally(() => { stopPrintButton.disabled = false; });
       });
     }
+
+    bedButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        bedBusy = true;
+        updateBedButtons();
+        fetch('/printer/bed', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content},
+          body: JSON.stringify({position: button.dataset.position}),
+        })
+        .then(async response => {
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Could not move the bed');
+          showStatus(button.dataset.position === 'front' ? 'Bed moved forward.' : 'Bed moved back.');
+        })
+        .catch(error => showStatus(error.message))
+        .finally(() => { bedBusy = false; updateBedButtons(); });
+      });
+    });
 
     if (resolutionDropdown) {
     resolutionDropdown.addEventListener('change', function() {

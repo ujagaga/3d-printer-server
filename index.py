@@ -549,6 +549,18 @@ def set_power_off_when_done():
     return jsonify({'power_off_when_done': enabled})
 
 
+@application.route('/printer/bed', methods=['POST'])
+def move_printer_bed():
+    if not get_logged_in_user():
+        return jsonify({'error': 'Not logged in'}), 401
+    position = request.get_json().get('position')
+    if position not in ('front', 'back'):
+        return jsonify({'error': 'Invalid position'}), 400
+    if not helper.move_printer_bed(position == 'front'):
+        return jsonify({'error': 'Could not move the bed'}), 502
+    return jsonify({'status': 'ok'})
+
+
 @application.route('/manage_users', methods=['GET'])
 def manage_users():
     token = request.cookies.get('token')

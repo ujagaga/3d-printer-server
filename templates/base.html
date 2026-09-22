@@ -51,6 +51,7 @@
         </div>
       {% endfor %}
     {% endif %}
+    {% block footer_controls %}{% endblock %}
     <span id="status_message" class="status_message" role="status" aria-live="polite" aria-atomic="true">
       {% with messages = get_flashed_messages() %}
         {% if messages %}{{ messages | join(' ') }}{% else %}{% block status_message %}{% endblock %}{% endif %}
