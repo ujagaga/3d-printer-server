@@ -24,6 +24,7 @@ POLL_INTERVAL = 5
 SETTLE_TIME = 3         # the board reboots when the port opens
 REPLY_TIMEOUT = 10
 MAX_UPLOAD_SIZE = 32 * 1024 * 1024
+UPLOAD_ATTEMPTS = 3
 
 logger = logging.getLogger(__name__)
 
@@ -127,23 +128,31 @@ class Printer:
                 raise RuntimeError('Printer response timed out')
 
             self.serial.reset_input_buffer()
-            try:
-                send(f'M28 {filename}'.encode('ascii'))
-                with open(path, 'rb') as source:
-                    for line in source:
-                        # Marlin ignores comment-only lines without sending ok.
-                        command = line.split(b';', 1)[0].strip()
-                        if command:
-                            send(command)
-                        progress['written'] += len(line)
-                send(b'M29')
-            except Exception:
-                # Leave SD write mode even when a transfer fails.
+            for attempt in range(1, UPLOAD_ATTEMPTS + 1):
+                progress['written'] = 0
                 try:
+                    send(f'M28 {filename}'.encode('ascii'))
+                    with open(path, 'rb') as source:
+                        for line in source:
+                            # Marlin ignores comment-only lines without sending ok.
+                            command = line.split(b';', 1)[0].strip()
+                            if command:
+                                send(command)
+                            progress['written'] += len(line)
                     send(b'M29')
-                except Exception:
-                    logger.exception('Could not close failed SD upload')
-                raise
+                    return
+                except Exception as e:
+                    # Leave SD write mode even when a transfer fails, and delete
+                    # the partial file, which would block another upload of it.
+                    for command in (b'M29', f'M30 {filename}'.encode('ascii')):
+                        try:
+                            send(command)
+                        except Exception:
+                            logger.exception(f'Could not clean up failed SD upload: {command}')
+                    # The SD card write fails intermittently; start over.
+                    if attempt == UPLOAD_ATTEMPTS or 'error writing to file' not in str(e).lower():
+                        raise
+                    logger.warning(f'Retrying upload of {filename} after: {e}')
 
 
 printer = Printer()

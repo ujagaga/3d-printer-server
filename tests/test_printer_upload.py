@@ -16,10 +16,11 @@ with patch.dict(sys.modules, serial=types.ModuleType('serial'),
 
 
 class Serial:
-    def __init__(self, fail=False):
+    def __init__(self, fail=False, write_errors=0):
         self.pending = bytearray()
         self.lines = []
         self.fail = fail
+        self.write_errors = write_errors
 
     def reset_input_buffer(self):
         self.pending.clear()
@@ -32,6 +33,9 @@ class Serial:
         self.lines.append(line)
         if self.fail and line.startswith(b'G1'):
             self.pending.extend(b'Error: SD write failed\nok\n')
+        elif self.write_errors and line.startswith(b'G1'):
+            self.write_errors -= 1
+            self.pending.extend(b'Error:error writing to file\nok\n')
         else:
             self.pending.extend(b'echo: accepted\r\nok\n')
 
@@ -63,8 +67,21 @@ class UploadTests(unittest.TestCase):
         serial = Serial(fail=True)
         with self.assertRaisesRegex(RuntimeError, 'SD write failed'):
             self.upload(serial)
-        self.assertEqual(serial.lines[-1], b'M29\n')
+        self.assertEqual(serial.lines[-2:], [b'M29\n', b'M30 TEST.GCO\n'])
         self.assertNotIn(b'G1 X2\n', serial.lines)
+
+    def test_intermittent_write_error_restarts_upload(self):
+        serial = Serial(write_errors=1)
+        self.upload(serial)
+        self.assertEqual(serial.lines,
+                         [b'M28 TEST.GCO\n', b'G1 X1\n', b'M29\n', b'M30 TEST.GCO\n',
+                          b'M28 TEST.GCO\n', b'G1 X1\n', b'G1 X2\n', b'M29\n'])
+
+    def test_repeated_write_errors_give_up(self):
+        serial = Serial(write_errors=bridge.UPLOAD_ATTEMPTS)
+        with self.assertRaisesRegex(RuntimeError, 'error writing to file'):
+            self.upload(serial)
+        self.assertEqual(serial.lines.count(b'M28 TEST.GCO\n'), bridge.UPLOAD_ATTEMPTS)
 
 
 if __name__ == '__main__':
