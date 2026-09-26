@@ -16,8 +16,9 @@ with patch.dict(sys.modules, serial=types.ModuleType('serial'),
 
 
 class Serial:
-    def __init__(self, fail=False, write_errors=0):
+    def __init__(self, fail=False, write_errors=0, unmounted=False):
         self.pending = bytearray()
+        self.unmounted = unmounted
         self.lines = []
         self.fail = fail
         self.write_errors = write_errors
@@ -31,7 +32,9 @@ class Serial:
 
     def write(self, line):
         self.lines.append(line)
-        if self.fail and line.startswith(b'G1'):
+        if line.startswith(b'M28') and not self.unmounted:
+            self.pending.extend(b'Writing to file: TEST.GCO\nok\n')
+        elif self.fail and line.startswith(b'G1'):
             self.pending.extend(b'Error: SD write failed\nok\n')
         elif self.write_errors and line.startswith(b'G1'):
             self.write_errors -= 1
@@ -67,14 +70,14 @@ class UploadTests(unittest.TestCase):
         serial = Serial(fail=True)
         with self.assertRaisesRegex(RuntimeError, 'SD write failed'):
             self.upload(serial)
-        self.assertEqual(serial.lines[-2:], [b'M29\n', b'M30 TEST.GCO\n'])
+        self.assertEqual(serial.lines[-3:], [b'M29\n', b'M21\n', b'M30 TEST.GCO\n'])
         self.assertNotIn(b'G1 X2\n', serial.lines)
 
     def test_intermittent_write_error_restarts_upload(self):
         serial = Serial(write_errors=1)
         self.upload(serial)
         self.assertEqual(serial.lines,
-                         [b'M28 TEST.GCO\n', b'G1 X1\n', b'M29\n', b'M30 TEST.GCO\n',
+                         [b'M28 TEST.GCO\n', b'G1 X1\n', b'M29\n', b'M21\n', b'M30 TEST.GCO\n',
                           b'M28 TEST.GCO\n', b'G1 X1\n', b'G1 X2\n', b'M29\n'])
 
     def test_repeated_write_errors_give_up(self):
@@ -82,6 +85,12 @@ class UploadTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'error writing to file'):
             self.upload(serial)
         self.assertEqual(serial.lines.count(b'M28 TEST.GCO\n'), bridge.UPLOAD_ATTEMPTS)
+
+    def test_unmounted_card_sends_no_gcode(self):
+        serial = Serial(unmounted=True)
+        with self.assertRaisesRegex(RuntimeError, 'did not open'):
+            self.upload(serial)
+        self.assertFalse(any(line.startswith(b'G1') for line in serial.lines))
 
 
 if __name__ == '__main__':

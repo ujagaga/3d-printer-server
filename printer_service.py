@@ -109,6 +109,7 @@ class Printer:
                 # USB/serial wait to every line of a potentially huge file.
                 deadline = time.monotonic() + REPLY_TIMEOUT
                 errors = []
+                replies = []
                 while time.monotonic() < deadline:
                     if b'\n' not in received:
                         # pySerial readline reads one byte at a time. Consume
@@ -121,7 +122,8 @@ class Printer:
                     if reply.startswith('ok'):
                         if errors:
                             raise RuntimeError(errors[-1])
-                        return
+                        return replies
+                    replies.append(reply)
                     if ('error' in reply.lower() or 'failed' in reply.lower()
                             or reply.lower().startswith(('resend:', 'rs '))):
                         errors.append(reply)
@@ -131,7 +133,11 @@ class Printer:
             for attempt in range(1, UPLOAD_ATTEMPTS + 1):
                 progress['written'] = 0
                 try:
-                    send(f'M28 {filename}'.encode('ascii'))
+                    # Without a mounted card the firmware acknowledges M28 but
+                    # then executes every following line as a live command.
+                    if not any('Writing to file' in reply
+                               for reply in send(f'M28 {filename}'.encode('ascii'))):
+                        raise RuntimeError('Printer did not open the SD file for writing')
                     with open(path, 'rb') as source:
                         for line in source:
                             # Marlin ignores comment-only lines without sending ok.
@@ -144,7 +150,9 @@ class Printer:
                 except Exception as e:
                     # Leave SD write mode even when a transfer fails, and delete
                     # the partial file, which would block another upload of it.
-                    for command in (b'M29', f'M30 {filename}'.encode('ascii')):
+                    # A failed write can leave the file undeletable until the
+                    # card is mounted again.
+                    for command in (b'M29', b'M21', f'M30 {filename}'.encode('ascii')):
                         try:
                             send(command)
                         except Exception:
