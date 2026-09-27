@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 
 {% block footer_controls %}
+  <span id="printer_temperatures" class="printer_temperatures" hidden>
+    <span title="Nozzle temperature"><i class="fa-solid fa-fire"></i> <span id="nozzle_temperature"></span></span>
+    <span title="Bed temperature"><i class="fa-solid fa-border-all"></i> <span id="bed_temperature"></span></span>
+  </span>
   <div class="bed_control">
     <button type="button" class="bed_btn" data-position="back" title="Send the bed back" aria-label="Send the bed back" disabled>
       <i class="fa-solid fa-arrow-up"></i>

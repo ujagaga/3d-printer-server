@@ -394,6 +394,19 @@ def printer_upload_status():
         return None
 
 
+def printer_temperatures():
+    """Return current and target nozzle and bed temperatures from Marlin M105, or None."""
+    for line in printer_request('M105') or []:
+        nozzle = re.search(r'\bT0?:\s*(-?[\d.]+)\s*/\s*(-?[\d.]+)', line)
+        bed = re.search(r'\bB:\s*(-?[\d.]+)\s*/\s*(-?[\d.]+)', line)
+        if nozzle and bed:
+            return {
+                'nozzle': float(nozzle.group(1)), 'nozzle_target': float(nozzle.group(2)),
+                'bed': float(bed.group(1)), 'bed_target': float(bed.group(2)),
+            }
+    return None
+
+
 def printer_print_status():
     """Return SD print state and byte-based progress reported by Marlin M27."""
     lines = printer_request('M27')

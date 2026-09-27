@@ -213,6 +213,14 @@ h1 {
   gap: 0.5rem;
 }
 
+.printer_temperatures {
+  display: flex;
+  gap: 0.8rem;
+  white-space: nowrap;
+}
+
+.printer_temperatures[hidden] { display: none; }
+
 .bed_btn {
   display: inline-flex;
   align-items: center;

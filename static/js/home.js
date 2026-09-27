@@ -78,6 +78,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const powerOffOption = document.getElementById('power_off_when_done');
     const powerOffWrapper = document.getElementById('power_off_when_done_wrapper');
     const bedButtons = document.querySelectorAll('.bed_btn');
+    const printerTemperatures = document.getElementById('printer_temperatures');
     let bedBusy = false;
     let bedIdle = false;
 
@@ -128,6 +129,15 @@ document.addEventListener('DOMContentLoaded', function() {
             printerSettingsButton.classList.toggle('disabled', !online);
             printerSettingsButton.setAttribute('aria-disabled', String(!online));
             printerSettingsButton.tabIndex = online ? 0 : -1;
+          }
+          const temps = status.temperatures;
+          if (printerTemperatures) {
+            printerTemperatures.hidden = !temps;
+            if (temps) {
+              const format = (current, target) => `${Math.round(current)}°${target > 0 ? ` / ${Math.round(target)}°` : ''}`;
+              document.getElementById('nozzle_temperature').textContent = format(temps.nozzle, temps.nozzle_target);
+              document.getElementById('bed_temperature').textContent = format(temps.bed, temps.bed_target);
+            }
           }
           bedIdle = status.state === 'idle';
           updateBedButtons();
