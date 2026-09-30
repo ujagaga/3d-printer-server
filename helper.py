@@ -331,9 +331,11 @@ def stop_printer_sd_print():
 
     Stock Creality firmware has no M524, and its M27 keeps reporting the selected
     file until the card is released, so mirror what the LCD stop does: drop the
-    SD job and the queued moves, park the head, cool down and unmount the card."""
+    SD job and the queued moves, park the head, cool down and unmount the card.
+    The LCD stop also invalidates the power loss record in the SD file 'bin';
+    delete it, or the next M21 resumes the stopped print."""
     for command in ('M25', 'M410', 'M26 S0', 'G91', 'G1 Z10 F600', 'G90', 'G28 X Y',
-                    'M104 S0', 'M140 S0', 'M107', 'M84', 'M22'):
+                    'M104 S0', 'M140 S0', 'M107', 'M84', 'M30 bin', 'M22'):
         printer_request(command)
 
     # Marlin floods busy messages while a print runs, so single replies get lost
