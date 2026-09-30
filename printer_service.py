@@ -132,6 +132,8 @@ class Printer:
                 raise RuntimeError('Printer response timed out')
 
             self.serial.reset_input_buffer()
+            # The card is released when the printer connects and after a stop.
+            send(b'M21')
             for attempt in range(1, UPLOAD_ATTEMPTS + 1):
                 progress['written'] = 0
                 try:

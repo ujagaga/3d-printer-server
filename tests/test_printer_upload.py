@@ -16,9 +16,10 @@ with patch.dict(sys.modules, serial=types.ModuleType('serial'),
 
 
 class Serial:
-    def __init__(self, fail=False, write_errors=0, unmounted=False):
+    def __init__(self, fail=False, write_errors=0, unmounted=False, released=False):
         self.pending = bytearray()
         self.unmounted = unmounted
+        self.released = released
         self.lines = []
         self.fail = fail
         self.write_errors = write_errors
@@ -32,7 +33,9 @@ class Serial:
 
     def write(self, line):
         self.lines.append(line)
-        if line.startswith(b'M28') and not self.unmounted:
+        if line.startswith(b'M21'):
+            self.released = False
+        if line.startswith(b'M28') and not self.unmounted and not self.released:
             self.pending.extend(b'Writing to file: TEST.GCO\nok\n')
         elif self.fail and line.startswith(b'G1'):
             self.pending.extend(b'Error: SD write failed\nok\n')
@@ -64,7 +67,12 @@ class UploadTests(unittest.TestCase):
         serial = Serial()
         self.upload(serial)
         self.assertEqual(serial.lines,
-                         [b'M28 TEST.GCO\n', b'G1 X1\n', b'G1 X2\n', b'M29\n'])
+                         [b'M21\n', b'M28 TEST.GCO\n', b'G1 X1\n', b'G1 X2\n', b'M29\n'])
+
+    def test_released_card_is_mounted_before_writing(self):
+        serial = Serial(released=True)
+        self.upload(serial)
+        self.assertEqual(serial.lines[:2], [b'M21\n', b'M28 TEST.GCO\n'])
 
     def test_write_error_closes_file_and_stops_upload(self):
         serial = Serial(fail=True)
@@ -77,7 +85,7 @@ class UploadTests(unittest.TestCase):
         serial = Serial(write_errors=1)
         self.upload(serial)
         self.assertEqual(serial.lines,
-                         [b'M28 TEST.GCO\n', b'G1 X1\n', b'M29\n', b'M21\n', b'M30 TEST.GCO\n',
+                         [b'M21\n', b'M28 TEST.GCO\n', b'G1 X1\n', b'M29\n', b'M21\n', b'M30 TEST.GCO\n',
                           b'M28 TEST.GCO\n', b'G1 X1\n', b'G1 X2\n', b'M29\n'])
 
     def test_repeated_write_errors_give_up(self):
