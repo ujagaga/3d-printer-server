@@ -48,8 +48,10 @@ class Printer:
                     time.sleep(SETTLE_TIME)
                     self.serial.reset_input_buffer()
                     # The board restores the SD position of the last print on boot,
-                    # so M27 would report a print that is not running. Release the
-                    # card to clear it; power loss resume is not used here.
+                    # so M27 would report a print that is not running. Power loss
+                    # resume is not used here: delete its record in the SD file 'bin',
+                    # or the next M21 resumes the print, then release the card to clear it.
+                    self._command('M30 bin')
                     self._command('M22')
                     logger.info("Printer connected")
                 except Exception as e:
