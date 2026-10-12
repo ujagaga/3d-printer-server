@@ -422,6 +422,7 @@ def printer_print_status():
             current, total = (int(value) for value in match.groups())
             percent = min(100, round(current * 100 / total, 1)) if total else 0
             started_at = None
+            elapsed_seconds = None
             remaining_seconds = None
             if total:
                 reply = printer_request('?print-started-at')
@@ -429,9 +430,9 @@ def printer_print_status():
                     value = json.loads('\n'.join(reply)) if reply else None
                     if isinstance(value, (int, float)) and not isinstance(value, bool) and 0 < value <= time.time():
                         started_at = value
+                        elapsed_seconds = round(time.time() - started_at)
                         if current > 0:
-                            elapsed = time.time() - started_at
-                            remaining_seconds = max(0, round(elapsed * (total - current) / current))
+                            remaining_seconds = max(0, round(elapsed_seconds * (total - current) / current))
                 except (ValueError, TypeError):
                     pass
             return {
@@ -440,6 +441,7 @@ def printer_print_status():
                 'current': current,
                 'total': total,
                 'started_at': started_at,
+                'elapsed_seconds': elapsed_seconds,
                 'remaining_seconds': remaining_seconds,
             }
         if re.search(r'not (?:sd|tf) printing', line, re.IGNORECASE):

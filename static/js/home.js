@@ -10,6 +10,12 @@ function formatPrintEta(seconds) {
     return `Estimated remaining: ${hours ? `${hours}h ` : ''}${minutes % 60}m`;
 }
 
+function formatPrintElapsed(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    return `Printing for ${hours ? `${hours}h ` : ''}${minutes % 60}m`;
+}
+
 function resizeVideo() {
     const videoContainer = document.getElementById('video_container');
     if (!videoContainer) return false;
@@ -151,7 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (printEta) {
               printEta.textContent = printStartedAt === null
                 ? 'Time remaining unavailable (start time unknown)'
-                : formatPrintEta(status.remaining_seconds);
+                : `${formatPrintElapsed(status.elapsed_seconds)} · ${formatPrintEta(status.remaining_seconds)}`;
             }
           }
           resizeVideo();
