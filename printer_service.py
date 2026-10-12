@@ -197,6 +197,8 @@ def remember_print_file(command, reply):
     lowered = [line.lower() for line in reply]
     success = any(line.startswith('ok') for line in lowered) and not any(
         marker in line for line in lowered for marker in ('error:', 'failed'))
+    if command == 'M24':
+        logger.info(f"M24 reply (success={success}): {reply}")
     with sd_files_lock:
         if command.startswith('M23 '):
             selected_sd_file = command[4:].strip() if success else None
@@ -212,6 +214,8 @@ def remember_print_file(command, reply):
             print_seen_running = True
         elif (command == 'M25' and success) or (
                 command == 'M27' and any(re.search(r'not (?:sd|tf) printing', line) for line in lowered)):
+            if print_started_at is not None:
+                logger.info(f"{command} cleared print start time: {reply}")
             active_sd_file = None
             selected_sd_file = None
             print_started_at = None
