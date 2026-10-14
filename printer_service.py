@@ -24,6 +24,7 @@ POLL_INTERVAL = 5
 SETTLE_TIME = 3         # the board reboots when the port opens
 REPLY_TIMEOUT = 10
 BUSY_REPLY_TIMEOUT = 2
+BUSY_WINDOW = 3         # Marlin repeats 'busy: processing' every 2 seconds
 MAX_UPLOAD_SIZE = 32 * 1024 * 1024
 UPLOAD_ATTEMPTS = 3
 POWER_OFF_TEMPERATURE = 50
@@ -35,6 +36,8 @@ class Printer:
     def __init__(self):
         self.lock = threading.Lock()
         self.serial = None
+        self.busy_seen_at = 0
+        self.temperature_line = None
 
     def online(self):
         return self.serial is not None
@@ -90,6 +93,7 @@ class Printer:
                 if not got:
                     continue
                 reply.append(got)
+                self._note(got)
                 if got.startswith('ok'):
                     break
         except Exception as e:
@@ -98,17 +102,28 @@ class Printer:
 
         return reply
 
+    def _note(self, line):
+        if 'busy:' in line:
+            self.busy_seen_at = time.time()
+        if re.search(r'\bT0?:.*\bB:', line):
+            self.temperature_line = line
+
+    def busy(self):
+        return time.time() - self.busy_seen_at < BUSY_WINDOW
+
     def drain(self):
-        """Return the lines the printer sent since the last command."""
+        """Return the complete lines the printer sent since the last read, without waiting."""
         with self.lock:
-            lines = []
             try:
-                while self.serial is not None and self.serial.in_waiting:
-                    got = self.serial.readline().decode('ascii', 'replace').strip()
-                    if got:
-                        lines.append(got)
+                data = self.serial.read(self.serial.in_waiting) if self.serial is not None else b''
             except Exception as e:
                 logger.error(f"ERROR reading printer: {e}")
+                return []
+            # Drop a line still arriving; the next command clears the buffer anyway.
+            lines = [line.strip() for line in data.decode('ascii', 'replace').split('\n')[:-1]]
+            lines = [line for line in lines if line]
+            for line in lines:
+                self._note(line)
             return lines
 
     def upload(self, filename, path, progress):
@@ -293,11 +308,10 @@ def busy_reply(command):
     lines = printer.drain()
     if print_idle(lines) is not None:
         remember_print_file('M27', lines)   # a late answer to an earlier M27
-    if not any('busy:' in line for line in lines):
+    if not printer.busy():
         return None, False
     if command == 'M105':
-        temperatures = [line for line in lines if re.search(r'\bT0?:.*\bB:', line)]
-        return temperatures[-1:] or None, True
+        return [printer.temperature_line] if printer.temperature_line else None, True
     with sd_files_lock:
         return [print_progress] if m27_unanswered and print_progress else None, True
 

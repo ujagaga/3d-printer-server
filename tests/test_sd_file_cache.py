@@ -36,31 +36,36 @@ class CacheTests(unittest.TestCase):
         bridge.m27_unanswered = False
 
     def test_busy_printer_answers_status_from_its_own_reports(self):
-        heating = [b'T:43.03 /90.00 B:28.75 /0.00 @:127 B@:0 W:?\n', b'echo:busy: processing\n']
+        heating = b'T:43.03 /90.00 B:28.75 /0.00 @:127 B@:0 W:?\necho:busy: processing\nT:45'
 
         class Serial:
-            def __init__(self, lines):
-                self.lines = list(lines)
+            def __init__(self, data):
+                self.data = data
 
             @property
             def in_waiting(self):
-                return len(self.lines)
+                return len(self.data)
 
-            def readline(self):
-                return self.lines.pop(0)
+            def read(self, size):
+                data, self.data = self.data[:size], self.data[size:]
+                return data
 
+        bridge.printer.busy_seen_at = 0
         bridge.remember_print_file('M23 C1.GCO', ['File opened: C1.GCO Size: 13619', 'File selected', 'ok'])
         bridge.remember_print_file('M24', ['Deletion(bin) failed.', 'ok'])
         with patch.object(bridge.printer, 'serial', Serial(heating)), patch.object(bridge.printer, 'command') as command:
             self.assertEqual(self.request('M27').strip(), 'SD printing byte 0/13619')
-            bridge.printer.serial.lines = list(heating)
-            self.assertEqual(self.request('M105').strip(), heating[0].decode().strip())
+            # Still busy from the last read, though nothing new arrived.
+            self.assertEqual(self.request('M105').strip(), 'T:43.03 /90.00 B:28.75 /0.00 @:127 B@:0 W:?')
             command.assert_not_called()
-            # Once the printer answers the queued M27, ask it again.
-            bridge.printer.serial.lines = [b'TF printing byte 120/13619\n', b'ok\n'] + heating
+            # Once the printer answers the queued M27, ask it again, briefly.
+            bridge.printer.serial.data = b'TF printing byte 120/13619\nok\n'
             command.return_value = ['TF printing byte 130/13619', 'ok']
             self.assertEqual(self.request('M27').strip(), 'TF printing byte 130/13619\nok')
             command.assert_called_once_with('M27', bridge.BUSY_REPLY_TIMEOUT)
+            bridge.printer.busy_seen_at = 0
+            self.request('M105')
+            command.assert_called_with('M105', bridge.REPLY_TIMEOUT)
 
     def test_auto_power_off_after_completion_only_once(self):
         bridge.remember_print_file('M24', ['ok'])
