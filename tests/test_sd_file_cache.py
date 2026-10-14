@@ -38,10 +38,25 @@ class CacheTests(unittest.TestCase):
         self.assertEqual(self.request('?power-off-when-done 1').strip(), 'true')
         bridge.remember_print_file('M27', ['Not SD printing', 'ok'])
         bridge.remember_print_file('M27', ['Not SD printing', 'ok'])
-        with patch.object(bridge.printer, 'command', return_value=['Not SD printing', 'ok']), patch.object(bridge, 'power_off_printer', return_value=True) as off:
+        with patch.object(bridge.printer, 'command', side_effect=self.printer_replies(['Not SD printing', 'ok'], 'ok T:49.9 /0.00 B:30.00 /0.00')), patch.object(bridge, 'power_off_printer', return_value=True) as off:
             self.request('?power-off-if-done')
             self.request('?power-off-if-done')
             off.assert_called_once()
+
+    def test_auto_power_off_waits_for_nozzle_to_cool_and_can_be_cancelled(self):
+        bridge.remember_print_file('M24', ['ok'])
+        self.request('?power-off-when-done 1')
+        bridge.remember_print_file('M27', ['TF printing byte 100/100', 'ok'])
+        self.assertEqual(self.request('?power-off-pending').strip(), 'true')
+        with patch.object(bridge.printer, 'command', side_effect=self.printer_replies(['TF printing byte 100/100', 'ok'], 'ok T:180.0 /0.00 B:50.00 /0.00')), patch.object(bridge, 'power_off_printer') as off:
+            self.request('?power-off-if-done')
+            off.assert_not_called()
+        self.assertEqual(self.request('?power-off-pending').strip(), 'true')
+        self.request('?power-off-when-done 0')
+        self.assertEqual(self.request('?power-off-pending').strip(), 'false')
+        with patch.object(bridge.printer, 'command', side_effect=self.printer_replies(['TF printing byte 100/100', 'ok'], 'ok T:30.0 /0.00 B:30.00 /0.00')), patch.object(bridge, 'power_off_printer') as off:
+            self.request('?power-off-if-done')
+            off.assert_not_called()
 
     def test_creality_finish_keeps_full_byte_count(self):
         self.assertTrue(helper.printer_command_succeeded(['Deletion(bin) failed.', 'ok']))
@@ -52,7 +67,7 @@ class CacheTests(unittest.TestCase):
         bridge.remember_print_file('M27', ['TF printing byte 500/13619', 'ok'])
         bridge.remember_print_file('M27', ['TF printing byte 13619/13619', 'ok'])
         self.assertIsNone(bridge.active_sd_file)
-        with patch.object(bridge.printer, 'command', return_value=['TF printing byte 13619/13619', 'ok']), patch.object(bridge, 'power_off_printer', return_value=True) as off:
+        with patch.object(bridge.printer, 'command', side_effect=self.printer_replies(['TF printing byte 13619/13619', 'ok'], 'ok T:45.0 /0.00 B:40.00 /0.00')), patch.object(bridge, 'power_off_printer', return_value=True) as off:
             self.request('?power-off-if-done')
             off.assert_called_once()
         for reply in (['TF printing byte 0/0', 'ok'], ['TF printing byte 13619/13619', 'ok']):
@@ -131,6 +146,9 @@ class CacheTests(unittest.TestCase):
         with patch.object(helper, 'printer_print_status', return_value={'state': 'printing'}), patch.object(helper, 'printer_request') as request:
             self.assertFalse(helper.start_printer_sd_file('TEST.GCO'))
             request.assert_not_called()
+
+    def printer_replies(self, m27, m105):
+        return lambda command: m27 if command == 'M27' else [m105]
 
     def request(self, command):
         handler = object.__new__(bridge.RequestHandler)

@@ -25,6 +25,7 @@ SETTLE_TIME = 3         # the board reboots when the port opens
 REPLY_TIMEOUT = 10
 MAX_UPLOAD_SIZE = 32 * 1024 * 1024
 UPLOAD_ATTEMPTS = 3
+POWER_OFF_TEMPERATURE = 50
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +205,15 @@ def print_idle(reply):
     return None
 
 
+def nozzle_cooled(reply):
+    """True when an M105 reply shows the nozzle below the power off temperature."""
+    for line in reply or []:
+        match = re.search(r'\bT0?:\s*(-?[\d.]+)', line)
+        if match:
+            return float(match.group(1)) < POWER_OFF_TEMPERATURE
+    return False
+
+
 def remember_print_file(command, reply):
     global selected_sd_file, active_sd_file, print_started_at
     global power_off_when_done, print_seen_running, power_off_pending
@@ -279,11 +289,23 @@ class RequestHandler(socketserver.StreamRequestHandler):
         if line == '?power-off-if-done':
             with command_lock, sd_files_lock:
                 if power_off_pending:
-                    power_off_pending = False
                     reply = printer.command('M27')
-                    if reply and print_idle(reply) and not power_off_printer():
-                        logger.error('Automatic printer power off failed')
+                    idle = print_idle(reply) if reply else False
+                    if idle is False:
+                        power_off_pending = False
+                    elif idle and nozzle_cooled(printer.command('M105')):
+                        # Cutting power stops the hotend fan, so wait for the
+                        # nozzle to cool or the filament can clog it.
+                        power_off_pending = False
+                        if not power_off_printer():
+                            logger.error('Automatic printer power off failed')
             self.wfile.write(b'ok\n')
+            return
+
+        if line == '?power-off-pending':
+            with sd_files_lock:
+                pending = power_off_pending
+            self.wfile.write((json.dumps(pending) + '\n').encode('ascii'))
             return
 
         if line == '?status':

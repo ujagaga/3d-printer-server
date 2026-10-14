@@ -533,6 +533,7 @@ def printer_current_print_status():
     status = helper.printer_print_status()
     reply = helper.printer_request('?power-off-when-done')
     status['power_off_when_done'] = reply == ['true']
+    status['power_off_pending'] = helper.printer_request('?power-off-pending') == ['true']
     if status['state'] in ('idle', 'printing'):
         status['temperatures'] = helper.printer_temperatures()
     return jsonify(status)

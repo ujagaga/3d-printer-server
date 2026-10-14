@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(status => {
           const online = status.state === 'idle' || status.state === 'printing';
           const printing = status.state === 'printing';
-          if (powerOffWrapper) powerOffWrapper.hidden = !printing;
+          if (powerOffWrapper) powerOffWrapper.hidden = !printing && status.power_off_pending !== true;
           if (powerOffOption && !powerOffSaving && revision === powerOffRevision) {
             powerOffOption.checked = status.power_off_when_done === true;
           }
