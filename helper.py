@@ -284,7 +284,8 @@ def printer_command_succeeded(lines):
         return False
 
     error_markers = ('error:', 'failed', 'not sd printing', 'not tf printing', 'unknown command')
-    lowered = [line.lower() for line in lines]
+    # M24 always tries to delete the power loss record, which is already gone.
+    lowered = [line.lower() for line in lines if line.lower() != 'deletion(bin) failed.']
     return any(line.startswith('ok') for line in lowered) and not any(
         marker in line for line in lowered for marker in error_markers
     )
@@ -436,7 +437,8 @@ def printer_print_status():
                 except (ValueError, TypeError):
                     pass
             return {
-                'state': 'printing' if total else 'idle',
+                # A finished print keeps reporting its full size until the next M23.
+                'state': 'printing' if current < total else 'idle',
                 'percent': percent,
                 'current': current,
                 'total': total,

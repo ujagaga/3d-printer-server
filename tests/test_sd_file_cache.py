@@ -43,6 +43,22 @@ class CacheTests(unittest.TestCase):
             self.request('?power-off-if-done')
             off.assert_called_once()
 
+    def test_creality_finish_keeps_full_byte_count(self):
+        self.assertTrue(helper.printer_command_succeeded(['Deletion(bin) failed.', 'ok']))
+        bridge.remember_print_file('M23 C1.GCO', ['File selected', 'ok'])
+        bridge.remember_print_file('M24', ['Deletion(bin) failed.', 'ok'])
+        self.assertEqual(bridge.active_sd_file, 'C1.GCO')
+        self.request('?power-off-when-done 1')
+        bridge.remember_print_file('M27', ['TF printing byte 500/13619', 'ok'])
+        bridge.remember_print_file('M27', ['TF printing byte 13619/13619', 'ok'])
+        self.assertIsNone(bridge.active_sd_file)
+        with patch.object(bridge.printer, 'command', return_value=['TF printing byte 13619/13619', 'ok']), patch.object(bridge, 'power_off_printer', return_value=True) as off:
+            self.request('?power-off-if-done')
+            off.assert_called_once()
+        for reply in (['TF printing byte 0/0', 'ok'], ['TF printing byte 13619/13619', 'ok']):
+            with patch.object(helper, 'printer_request', side_effect=[reply, ['null']]):
+                self.assertEqual(helper.printer_print_status()['state'], 'idle')
+
     def test_auto_power_off_ignores_abort_disconnect_and_new_print(self):
         for ending in ('M25', 'offline', 'new_print', 'disabled'):
             with self.subTest(ending=ending):

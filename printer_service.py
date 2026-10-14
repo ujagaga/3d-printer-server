@@ -189,12 +189,28 @@ def power_off_printer():
     return RelayServiceController(getattr(settings, 'RELAY_TCP_PORT', 5032)).set_socket(0, 0) is not None
 
 
+def print_idle(reply):
+    """True when an M27 reply shows no SD print running, False while one runs,
+    None when the reply is unreadable. Creality firmware never says 'Not TF
+    printing': it reports 0/0 with no file selected, and once a print finishes it
+    keeps reporting the full size of that file until another one is selected."""
+    for line in reply:
+        if re.search(r'not (?:sd|tf) printing', line, re.IGNORECASE):
+            return True
+        match = re.search(r'printing byte\s+(\d+)\s*/\s*(\d+)', line, re.IGNORECASE)
+        if match:
+            current, total = (int(value) for value in match.groups())
+            return current >= total
+    return None
+
+
 def remember_print_file(command, reply):
     global selected_sd_file, active_sd_file, print_started_at
     global power_off_when_done, print_seen_running, power_off_pending
     if not reply:
         return
-    lowered = [line.lower() for line in reply]
+    # M24 always tries to delete the power loss record, which is already gone.
+    lowered = [line.lower() for line in reply if line.lower() != 'deletion(bin) failed.']
     success = any(line.startswith('ok') for line in lowered) and not any(
         marker in line for line in lowered for marker in ('error:', 'failed'))
     if command == 'M24':
@@ -210,10 +226,9 @@ def remember_print_file(command, reply):
                 print_started_at = time.time()
                 power_off_when_done = bool(getattr(settings, 'POWER_OFF_WHEN_DONE', False))
             print_seen_running = True
-        elif command == 'M27' and any(re.search(r'printing byte\s+\d+\s*/\s*[1-9]\d*', line) for line in lowered):
+        elif command == 'M27' and print_idle(reply) is False:
             print_seen_running = True
-        elif (command == 'M25' and success) or (
-                command == 'M27' and any(re.search(r'not (?:sd|tf) printing', line) for line in lowered)):
+        elif (command == 'M25' and success) or (command == 'M27' and print_idle(reply)):
             if print_started_at is not None:
                 logger.info(f"{command} cleared print start time: {reply}")
             active_sd_file = None
@@ -266,8 +281,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
                 if power_off_pending:
                     power_off_pending = False
                     reply = printer.command('M27')
-                    idle = reply and any(re.search(r'not (?:sd|tf) printing', item, re.IGNORECASE) for item in reply)
-                    if idle and not power_off_printer():
+                    if reply and print_idle(reply) and not power_off_printer():
                         logger.error('Automatic printer power off failed')
             self.wfile.write(b'ok\n')
             return
