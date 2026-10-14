@@ -97,6 +97,19 @@ class Printer:
 
         return reply
 
+    def drain(self):
+        """Return the lines the printer sent since the last command."""
+        with self.lock:
+            lines = []
+            try:
+                while self.serial is not None and self.serial.in_waiting:
+                    got = self.serial.readline().decode('ascii', 'replace').strip()
+                    if got:
+                        lines.append(got)
+            except Exception as e:
+                logger.error(f"ERROR reading printer: {e}")
+            return lines
+
     def upload(self, filename, path, progress):
         """Write a spooled G-code file to the printer SD card without allowing
         other serial commands to interleave."""
@@ -179,6 +192,8 @@ print_started_at = None
 power_off_when_done = bool(getattr(settings, 'POWER_OFF_WHEN_DONE', False))
 print_seen_running = False
 power_off_pending = False
+print_progress = None       # last M27 progress of the selected file
+m27_unanswered = False
 command_lock = threading.Lock()
 
 
@@ -217,6 +232,7 @@ def nozzle_cooled(reply):
 def remember_print_file(command, reply):
     global selected_sd_file, active_sd_file, print_started_at
     global power_off_when_done, print_seen_running, power_off_pending
+    global print_progress, m27_unanswered
     if not reply:
         return
     # M24 always tries to delete the power loss record, which is already gone.
@@ -226,12 +242,22 @@ def remember_print_file(command, reply):
     if command == 'M24':
         logger.info(f"M24 reply (success={success}): {reply}")
     with sd_files_lock:
+        if command == 'M27':
+            m27_unanswered = print_idle(reply) is None
+            for line in reply:
+                match = re.search(r'printing byte\s+(\d+)\s*/\s*(\d+)', line, re.IGNORECASE)
+                if match:
+                    print_progress = f'SD printing byte {match.group(1)}/{match.group(2)}'
         if command.startswith('M23 '):
             selected_sd_file = command[4:].strip() if success else None
             power_off_pending = False
+            size = next((match.group(1) for match in (re.search(r'size:\s*(\d+)', line) for line in lowered) if match), None)
+            print_progress = f'SD printing byte 0/{size}' if success and size else None
         elif command == 'M24' and success:
             active_sd_file = selected_sd_file
             power_off_pending = False
+            # A print starts by heating, which leaves M27 unanswered.
+            m27_unanswered = True
             if print_started_at is None:
                 print_started_at = time.time()
                 power_off_when_done = bool(getattr(settings, 'POWER_OFF_WHEN_DONE', False))
@@ -244,11 +270,32 @@ def remember_print_file(command, reply):
             active_sd_file = None
             selected_sd_file = None
             print_started_at = None
+            if command == 'M25':
+                print_progress = None
             power_off_pending = command == 'M27' and (power_off_pending or (print_seen_running and power_off_when_done))
             print_seen_running = False
         elif reply == ['offline']:
             print_seen_running = False
             power_off_pending = False
+            print_progress = None
+            m27_unanswered = False
+
+
+def busy_reply(command):
+    """Marlin answers nothing while it blocks on heating or homing: it queues
+    commands, repeats 'busy: processing' and reports temperatures instead.
+    Queued M27 and M105 would outlast the client timeouts and pile up, so
+    answer them from what the printer sent since the last command."""
+    lines = printer.drain()
+    if print_idle(lines) is not None:
+        remember_print_file('M27', lines)   # a late answer to an earlier M27
+    if not any('busy:' in line for line in lines):
+        return None
+    if command == 'M105':
+        temperatures = [line for line in lines if re.search(r'\bT0?:.*\bB:', line)]
+        return temperatures[-1:] or None
+    with sd_files_lock:
+        return [print_progress] if m27_unanswered and print_progress else None
 
 
 def run_upload(filename, path):
@@ -380,8 +427,10 @@ class RequestHandler(socketserver.StreamRequestHandler):
             return
 
         with command_lock:
-            reply = printer.command(line)
-            remember_print_file(line, reply if reply is not None else ['offline'])
+            reply = busy_reply(line) if line in ('M27', 'M105') else None
+            if reply is None:
+                reply = printer.command(line)
+                remember_print_file(line, reply if reply is not None else ['offline'])
         if (line == 'M20' and reply is not None
                 and 'Begin file list' in reply and 'End file list' in reply
                 and reply.index('Begin file list') < reply.index('End file list')):

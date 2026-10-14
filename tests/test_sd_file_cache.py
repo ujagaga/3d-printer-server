@@ -32,6 +32,35 @@ class CacheTests(unittest.TestCase):
         bridge.power_off_when_done = False
         bridge.print_seen_running = False
         bridge.power_off_pending = False
+        bridge.print_progress = None
+        bridge.m27_unanswered = False
+
+    def test_busy_printer_answers_status_from_its_own_reports(self):
+        heating = [b'T:43.03 /90.00 B:28.75 /0.00 @:127 B@:0 W:?\n', b'echo:busy: processing\n']
+
+        class Serial:
+            def __init__(self, lines):
+                self.lines = list(lines)
+
+            @property
+            def in_waiting(self):
+                return len(self.lines)
+
+            def readline(self):
+                return self.lines.pop(0)
+
+        bridge.remember_print_file('M23 C1.GCO', ['File opened: C1.GCO Size: 13619', 'File selected', 'ok'])
+        bridge.remember_print_file('M24', ['Deletion(bin) failed.', 'ok'])
+        with patch.object(bridge.printer, 'serial', Serial(heating)), patch.object(bridge.printer, 'command') as command:
+            self.assertEqual(self.request('M27').strip(), 'SD printing byte 0/13619')
+            bridge.printer.serial.lines = list(heating)
+            self.assertEqual(self.request('M105').strip(), heating[0].decode().strip())
+            command.assert_not_called()
+            # Once the printer answers the queued M27, ask it again.
+            bridge.printer.serial.lines = [b'TF printing byte 120/13619\n', b'ok\n'] + heating
+            command.return_value = ['TF printing byte 130/13619', 'ok']
+            self.assertEqual(self.request('M27').strip(), 'TF printing byte 130/13619\nok')
+            command.assert_called_once_with('M27')
 
     def test_auto_power_off_after_completion_only_once(self):
         bridge.remember_print_file('M24', ['ok'])
