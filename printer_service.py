@@ -23,6 +23,7 @@ import settings
 POLL_INTERVAL = 5
 SETTLE_TIME = 3         # the board reboots when the port opens
 REPLY_TIMEOUT = 10
+BUSY_REPLY_TIMEOUT = 2
 MAX_UPLOAD_SIZE = 32 * 1024 * 1024
 UPLOAD_ATTEMPTS = 3
 POWER_OFF_TEMPERATURE = 50
@@ -67,12 +68,12 @@ class Printer:
                 self.serial = None
                 logger.info("Printer disconnected")
 
-    def command(self, line):
+    def command(self, line, timeout=REPLY_TIMEOUT):
         """Send one G-code line and collect the reply. Returns None if the printer is not there."""
         with self.lock:
-            return self._command(line)
+            return self._command(line, timeout)
 
-    def _command(self, line):
+    def _command(self, line, timeout=REPLY_TIMEOUT):
         """Send one G-code line with the serial lock already held."""
         if self.serial is None:
             return None
@@ -83,7 +84,7 @@ class Printer:
             self.serial.write(line.encode('ascii') + b"\n")
             self.serial.flush()
 
-            deadline = time.time() + REPLY_TIMEOUT
+            deadline = time.time() + timeout
             while time.time() < deadline:
                 got = self.serial.readline().decode('ascii', 'replace').strip()
                 if not got:
@@ -192,7 +193,7 @@ print_started_at = None
 power_off_when_done = bool(getattr(settings, 'POWER_OFF_WHEN_DONE', False))
 print_seen_running = False
 power_off_pending = False
-print_progress = None       # last M27 progress of the selected file
+print_progress = None       # last M27 state of the selected file
 m27_unanswered = False
 command_lock = threading.Lock()
 
@@ -248,6 +249,8 @@ def remember_print_file(command, reply):
                 match = re.search(r'printing byte\s+(\d+)\s*/\s*(\d+)', line, re.IGNORECASE)
                 if match:
                     print_progress = f'SD printing byte {match.group(1)}/{match.group(2)}'
+                elif re.search(r'not (?:sd|tf) printing', line, re.IGNORECASE):
+                    print_progress = 'Not SD printing'
         if command.startswith('M23 '):
             selected_sd_file = command[4:].strip() if success else None
             power_off_pending = False
@@ -285,17 +288,18 @@ def busy_reply(command):
     """Marlin answers nothing while it blocks on heating or homing: it queues
     commands, repeats 'busy: processing' and reports temperatures instead.
     Queued M27 and M105 would outlast the client timeouts and pile up, so
-    answer them from what the printer sent since the last command."""
+    answer them from what the printer sent since the last command. Returns the
+    reply, if there is one, and whether the printer is busy."""
     lines = printer.drain()
     if print_idle(lines) is not None:
         remember_print_file('M27', lines)   # a late answer to an earlier M27
     if not any('busy:' in line for line in lines):
-        return None
+        return None, False
     if command == 'M105':
         temperatures = [line for line in lines if re.search(r'\bT0?:.*\bB:', line)]
-        return temperatures[-1:] or None
+        return temperatures[-1:] or None, True
     with sd_files_lock:
-        return [print_progress] if m27_unanswered and print_progress else None
+        return [print_progress] if m27_unanswered and print_progress else None, True
 
 
 def run_upload(filename, path):
@@ -427,9 +431,10 @@ class RequestHandler(socketserver.StreamRequestHandler):
             return
 
         with command_lock:
-            reply = busy_reply(line) if line in ('M27', 'M105') else None
+            reply, busy = busy_reply(line) if line in ('M27', 'M105') else (None, False)
             if reply is None:
-                reply = printer.command(line)
+                # A busy printer answers late, if at all; do not hold the line for it.
+                reply = printer.command(line, BUSY_REPLY_TIMEOUT if busy else REPLY_TIMEOUT)
                 remember_print_file(line, reply if reply is not None else ['offline'])
         if (line == 'M20' and reply is not None
                 and 'Begin file list' in reply and 'End file list' in reply

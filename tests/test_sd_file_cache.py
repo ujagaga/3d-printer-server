@@ -60,7 +60,7 @@ class CacheTests(unittest.TestCase):
             bridge.printer.serial.lines = [b'TF printing byte 120/13619\n', b'ok\n'] + heating
             command.return_value = ['TF printing byte 130/13619', 'ok']
             self.assertEqual(self.request('M27').strip(), 'TF printing byte 130/13619\nok')
-            command.assert_called_once_with('M27')
+            command.assert_called_once_with('M27', bridge.BUSY_REPLY_TIMEOUT)
 
     def test_auto_power_off_after_completion_only_once(self):
         bridge.remember_print_file('M24', ['ok'])
