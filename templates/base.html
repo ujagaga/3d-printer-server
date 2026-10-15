@@ -43,9 +43,9 @@
             <span class="slider"></span>
           </label>
           {% if relay.endswith('_1') %}
-          <label id="power_off_when_done_wrapper" class="power_off_when_done" hidden>
-            <input type="checkbox" id="power_off_when_done">
-            Power off when done
+          <label id="power_off_when_done_wrapper" class="switch" title="Power off when done" hidden>
+            <input type="checkbox" id="power_off_when_done" aria-label="Power off when done">
+            <span class="slider"></span>
           </label>
           {% endif %}
         </div>
