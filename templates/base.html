@@ -38,7 +38,7 @@
               {{ relay }}
             {% endif %}
           </label>
-          <label class="switch">
+          <label class="switch" title="{{ 'Power off' if state else 'Power on' }}">
             <input type="checkbox" id="{{ relay }}" aria-label="{% if relay.endswith('_1') %}Printer power{% elif relay.endswith('_2') %}Auxiliary power{% else %}Relay power{% endif %}" {% if state %}checked{% endif %} onchange="toggleRelay('{{ relay }}', this.checked)">
             <span class="slider"></span>
           </label>

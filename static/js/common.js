@@ -49,6 +49,7 @@ async function toggleRelay(relayId, checked) {
     toggle.checked = !checked;
   } finally {
     toggle.disabled = false;
+    toggle.parentElement.title = toggle.checked ? 'Power off' : 'Power on';
   }
 }
 
