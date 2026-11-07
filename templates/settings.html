@@ -22,6 +22,11 @@
     <label for="gcode_file" class="save_btn upload_btn{% if file_actions_disabled %} disabled{% endif %}" title="Upload to printer SD card" aria-label="Upload to printer SD card" role="button" aria-disabled="{{ 'true' if file_actions_disabled else 'false' }}" tabindex="{{ -1 if file_actions_disabled else 0 }}">
       <i class="fa-solid fa-upload"></i>
     </label>
+    {% if show_hidden %}
+      <a href="{{ url_for('printer_settings') }}" class="save_btn upload_btn" title="Hide hidden files" aria-label="Hide hidden files"><i class="fa-solid fa-eye-slash"></i></a>
+    {% else %}
+      <a href="{{ url_for('printer_settings', hidden=1) }}" class="save_btn upload_btn" title="Show hidden files" aria-label="Show hidden files"><i class="fa-solid fa-eye"></i></a>
+    {% endif %}
   </form>
   {% if upload_active %}
     <p id="upload_pending">The file list will refresh when the upload finishes.</p>
@@ -41,6 +46,7 @@
         <td>{{ f.name }}{% if is_active %} <span class="active_print_label">Printing</span>{% endif %}</td>
         <td>{% if f.size %}{{ (f.size / 1048576) | round(2) }} MB{% endif %}</td>
         <td>
+          {% if not f.hidden %}
           <form method="post" action="{{ url_for('start_printer') }}" onsubmit="return confirm('Start printing this file?');">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="filename" value="{{ f.name }}">
@@ -48,9 +54,11 @@
               <i class="fa-solid fa-play"></i>
             </button>
           </form>
+          {% endif %}
           <form method="post" action="{{ url_for('delete_printer_file') }}" class="delete_file_form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="filename" value="{{ f.name }}">
+            {% if show_hidden %}<input type="hidden" name="show_hidden" value="1">{% endif %}
             <button type="submit" class="save_btn" title="Delete {{ f.name }}" aria-label="Delete {{ f.name }}" {% if file_actions_disabled %}disabled{% endif %}>
               <i class="fa-solid fa-trash"></i>
             </button>

@@ -437,7 +437,8 @@ def printer_settings():
     upload_status = helper.printer_upload_status()
     upload_active = upload_status and upload_status.get('state') in ('receiving', 'uploading')
     print_state = 'uploading' if upload_active else helper.printer_print_status()['state']
-    sd_files, sd_files_cached = helper.printer_sd_files_for_display(upload_active, print_state)
+    show_hidden = request.args.get('hidden') == '1'
+    sd_files, sd_files_cached = helper.printer_sd_files_for_display(upload_active, print_state, show_hidden)
     active_file = helper.printer_active_sd_file() if print_state == 'printing' else None
     return render_template(
         'settings.html',
@@ -448,7 +449,8 @@ def printer_settings():
         sd_files_cached=sd_files_cached,
         file_actions_disabled=print_state != 'idle' or sd_files_cached,
         active_file=active_file.lstrip('/').upper() if active_file else None,
-        upload_active=upload_active
+        upload_active=upload_active,
+        show_hidden=show_hidden
     )
 
 
@@ -479,6 +481,8 @@ def delete_printer_file():
         flash(f'Deleted {filename}.', 'success')
     else:
         flash('Could not delete the file. The printer must be idle and the file must still exist.', 'error')
+    if request.form.get('show_hidden') == '1':
+        return redirect(safe_url_for('printer_settings', hidden=1))
     return redirect(safe_url_for('printer_settings'))
 
 

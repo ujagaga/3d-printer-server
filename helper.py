@@ -225,14 +225,15 @@ def printer_connected():
     return printer_request('?status') == ['online']
 
 
-def list_printer_sd_files():
-    """Ask Marlin for the SD card listing (M20). Returns a list of {"name", "size"} dicts, or
-    None if the printer could not be reached. Size is in bytes, or None when not reported."""
+def list_printer_sd_files(include_hidden=False):
+    """Ask Marlin for the SD card listing (M20). Returns a list of {"name", "size", "hidden"}
+    dicts, or None if the printer could not be reached. Size is in bytes, or None when not
+    reported. Hidden files are the ones in the trash folders."""
     lines = printer_request('M20')
-    return parse_printer_sd_files(lines)
+    return parse_printer_sd_files(lines, include_hidden)
 
 
-def parse_printer_sd_files(lines):
+def parse_printer_sd_files(lines, include_hidden=False):
     if (not lines or 'Begin file list' not in lines or 'End file list' not in lines
             or lines.index('Begin file list') >= lines.index('End file list')):
         return None
@@ -246,24 +247,27 @@ def parse_printer_sd_files(lines):
             break
         elif listing:
             parts = line.split()
-            if not parts or parts[0].startswith("/TRASH"):
+            if not parts:
+                continue
+            hidden = parts[0].startswith("/TRASH")
+            if hidden and not include_hidden:
                 continue
             size = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
-            files.append({"name": parts[0], "size": size})
+            files.append({"name": parts[0], "size": size, "hidden": hidden})
 
     return files
 
 
-def printer_sd_files_for_display(upload_active=False, print_state=None):
+def printer_sd_files_for_display(upload_active=False, print_state=None, include_hidden=False):
     """Use the shared bridge cache when a fresh listing is unsafe or unavailable."""
     if not upload_active and (print_state or printer_print_status()['state']) == 'idle':
-        files = list_printer_sd_files()
+        files = list_printer_sd_files(include_hidden)
         if files is not None:
             return files, False
     reply = printer_request('?sd-files-cache')
     try:
         lines = json.loads('\n'.join(reply)) if reply else None
-        files = parse_printer_sd_files(lines)
+        files = parse_printer_sd_files(lines, include_hidden)
     except (ValueError, TypeError):
         files = None
     return files, files is not None
@@ -317,13 +321,13 @@ def delete_printer_sd_file(filename):
         return False
     if printer_print_status()['state'] != 'idle':
         return False
-    files = list_printer_sd_files()
+    files = list_printer_sd_files(include_hidden=True)
     if files is None or filename not in {item['name'] for item in files}:
         return False
     printer_request('M21')
     if not printer_command_succeeded(printer_request(f'M30 {filename}')):
         return False
-    files = list_printer_sd_files()
+    files = list_printer_sd_files(include_hidden=True)
     return files is not None and filename not in {item['name'] for item in files}
 
 

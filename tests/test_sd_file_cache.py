@@ -166,6 +166,17 @@ class CacheTests(unittest.TestCase):
         bridge.remember_print_file('M27', ['Not SD printing', 'ok'])
         self.assertIsNone(bridge.active_sd_file)
 
+    def test_hidden_trash_files_are_listed_and_deleted_on_request(self):
+        listing = ['Begin file list', 'C1.GCO 13619', '/TRASH-~1/FILES/KNIFE-~2.GCO 1765540', 'End file list', 'ok']
+        self.assertEqual([f['name'] for f in helper.parse_printer_sd_files(listing)], ['C1.GCO'])
+        self.assertEqual(helper.parse_printer_sd_files(listing, include_hidden=True)[1],
+                         {'name': '/TRASH-~1/FILES/KNIFE-~2.GCO', 'size': 1765540, 'hidden': True})
+        after = [line for line in listing if 'KNIFE' not in line]
+        with patch.object(helper, 'printer_print_status', return_value={'state': 'idle'}), \
+                patch.object(helper, 'printer_request', side_effect=[listing, ['ok'], ['File deleted:', 'ok'], after]) as request:
+            self.assertTrue(helper.delete_printer_sd_file('/TRASH-~1/FILES/KNIFE-~2.GCO'))
+            request.assert_any_call('M30 /TRASH-~1/FILES/KNIFE-~2.GCO')
+
     def test_failed_selection_and_abort(self):
         bridge.remember_print_file('M23 TEST.GCO', ['ok'])
         bridge.remember_print_file('M23 MISSING.GCO', ['open failed', 'ok'])
@@ -207,7 +218,7 @@ class CacheTests(unittest.TestCase):
     def test_busy_display_uses_cache_without_listing_command(self):
         for state, uploading in [('printing', False), ('offline', False), ('idle', True)]:
             with self.subTest(state=state, uploading=uploading), patch.object(helper, 'printer_print_status', return_value={'state': state}), patch.object(helper, 'printer_request', return_value=[json.dumps(LISTING)]) as request:
-                self.assertEqual(helper.printer_sd_files_for_display(uploading), ([{'name': 'TEST.GCO', 'size': 123}], True))
+                self.assertEqual(helper.printer_sd_files_for_display(uploading), ([{'name': 'TEST.GCO', 'size': 123, 'hidden': False}], True))
                 request.assert_called_once_with('?sd-files-cache')
 
     def test_idle_refresh_and_failed_refresh_fallback(self):
