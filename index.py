@@ -450,7 +450,8 @@ def printer_settings():
         file_actions_disabled=print_state != 'idle' or sd_files_cached,
         active_file=active_file.lstrip('/').upper() if active_file else None,
         upload_active=upload_active,
-        show_hidden=show_hidden
+        show_hidden=show_hidden,
+        sd_original_names=database.get_sd_file_names(g.db)
     )
 
 
@@ -478,6 +479,8 @@ def delete_printer_file():
         return redirect(safe_url_for('login'))
     filename = request.form.get('filename', '')
     if helper.delete_printer_sd_file(filename):
+        database.delete_sd_file_name(g.db, filename.lstrip('/').upper())
+        database.sync_temp_db_to_disk(connection=g.db)
         flash(f'Deleted {filename}.', 'success')
     else:
         flash('Could not delete the file. The printer must be idle and the file must still exist.', 'error')
@@ -514,11 +517,14 @@ def upload_printer_file():
         flash('Choose a G-code file to upload.', 'error')
         return redirect(safe_url_for('printer_settings'))
 
-    sd_name = helper.upload_printer_sd_file(uploaded.filename, uploaded.read())
+    original_name = os.path.basename(uploaded.filename)
+    sd_name = helper.upload_printer_sd_file(uploaded.filename, uploaded.read(), database.get_sd_file_names(g.db))
     if sd_name:
-        flash(f'Uploading as {sd_name}.', 'success')
+        database.set_sd_file_name(g.db, sd_name, original_name)
+        database.sync_temp_db_to_disk(connection=g.db)
+        flash(f'Uploading {original_name} as {sd_name}.', 'success')
     else:
-        flash('Could not start the upload. The printer may be busy, offline, or the 8.3 filename may already exist.', 'error')
+        flash('Could not start the upload. The printer may be busy or offline, the file may already be on the SD card, or no short filename is free.', 'error')
     return redirect(safe_url_for('printer_settings'))
 
 

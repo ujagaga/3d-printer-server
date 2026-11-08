@@ -364,20 +364,34 @@ def move_printer_bed(to_front):
     return all(printer_request(command) not in (None, ['offline'], ['busy']) for command in commands)
 
 
-def sd_upload_filename(filename):
-    """Convert a browser filename to a safe, printable DOS 8.3 SD filename."""
-    stem = os.path.splitext(os.path.basename(filename))[0]
-    stem = ''.join(char for char in stem.upper() if char.isascii() and char.isalnum())[:8]
-    return f'{stem}.GCO' if stem else None
+def sd_upload_filename(filename, existing, original_names):
+    """Convert a browser filename to a safe, printable DOS 8.3 SD filename.
+
+    existing is the set of SD names on the card; original_names maps SD names to
+    uploaded filenames. A name taken by a different file becomes 7 characters plus
+    a digit. Returns None when the same file is already on the card or no name is free."""
+    original = os.path.basename(filename)
+    if any(original_names.get(name) == original for name in existing):
+        return None
+    stem = os.path.splitext(original)[0]
+    stem = ''.join(char for char in stem.upper() if char.isascii() and char.isalnum())
+    if not stem:
+        return None
+    for candidate in [stem[:8]] + [f'{stem[:7]}{digit}' for digit in range(1, 10)]:
+        if f'{candidate}.GCO' not in existing:
+            return f'{candidate}.GCO'
+    return None
 
 
-def upload_printer_sd_file(filename, data):
+def upload_printer_sd_file(filename, data, original_names):
     """Hand a G-code payload to the printer service for asynchronous writing."""
-    sd_name = sd_upload_filename(filename)
-    if not sd_name or not data:
+    if not data:
         return None
     files = list_printer_sd_files()
-    if files is None or sd_name in {item['name'].lstrip('/') for item in files}:
+    if files is None:
+        return None
+    sd_name = sd_upload_filename(filename, {item['name'].lstrip('/').upper() for item in files}, original_names)
+    if not sd_name:
         return None
     try:
         with socket.create_connection(('127.0.0.1', settings.PRINTER_TCP_PORT), timeout=15) as sock:

@@ -233,5 +233,25 @@ class CacheTests(unittest.TestCase):
         self.assertIsNone(helper.parse_printer_sd_files(['Begin file list', 'TEST.GCO 123']))
 
 
+class SdUploadFilenameTests(unittest.TestCase):
+    def test_free_name_uses_first_eight_characters(self):
+        self.assertEqual(helper.sd_upload_filename('Bracket left v2.gcode', set(), {}), 'BRACKETL.GCO')
+
+    def test_taken_name_becomes_seven_characters_and_digit(self):
+        existing = {'BRACKETL.GCO', 'BRACKET1.GCO'}
+        names = {'BRACKETL.GCO': 'Bracket left.gcode', 'BRACKET1.GCO': 'Bracket long.gcode'}
+        self.assertEqual(helper.sd_upload_filename('Bracket lower.gcode', existing, names), 'BRACKET2.GCO')
+
+    def test_unknown_card_file_counts_as_different(self):
+        self.assertEqual(helper.sd_upload_filename('cube.gcode', {'CUBE.GCO'}, {}), 'CUBE1.GCO')
+
+    def test_same_original_name_is_rejected(self):
+        self.assertIsNone(helper.sd_upload_filename('cube.gcode', {'CUBE1.GCO'}, {'CUBE1.GCO': 'cube.gcode'}))
+
+    def test_all_digits_taken_is_rejected(self):
+        existing = {'CUBE.GCO'} | {f'CUBE{digit}.GCO' for digit in range(1, 10)}
+        self.assertIsNone(helper.sd_upload_filename('cube.gcode', existing, {}))
+
+
 if __name__ == '__main__':
     unittest.main()

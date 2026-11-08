@@ -16,6 +16,15 @@ temp_dir = os.path.join("/dev", "shm", settings.APP_TITLE)
 temp_db = os.path.join(temp_dir, settings.DB_NAME)
 
 
+# Maps the DOS 8.3 SD card name to the original uploaded filename shown in the UI.
+SD_FILES_TABLE_SQL = """
+    CREATE TABLE IF NOT EXISTS sd_files (
+        sd_name TEXT NOT NULL PRIMARY KEY,
+        original_name TEXT NOT NULL
+    );
+    """
+
+
 def check_table_exists(connection, tablename):
     cursor = connection.cursor()
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?;", (tablename,))
@@ -60,6 +69,8 @@ def init_database(connection):
         cursor.execute(sql)
         connection.commit()
 
+    cursor.execute(SD_FILES_TABLE_SQL)
+    connection.commit()
     cursor.close()
 
 
@@ -283,6 +294,26 @@ def delete_device(connection, name: str):
     except Exception as exc:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         logger.exception(f"ERROR adding user to db on line {exc_tb.tb_lineno}!\n\t{exc}")
+
+
+def get_sd_file_names(connection):
+    """Return {sd_name: original_name} for uploaded files."""
+    connection.execute(SD_FILES_TABLE_SQL)
+    rows = connection.execute("SELECT sd_name, original_name FROM sd_files;").fetchall()
+    return {row["sd_name"]: row["original_name"] for row in rows}
+
+
+def set_sd_file_name(connection, sd_name: str, original_name: str):
+    connection.execute(SD_FILES_TABLE_SQL)
+    connection.execute("INSERT OR REPLACE INTO sd_files (sd_name, original_name) VALUES (?, ?);",
+                       (sd_name, original_name))
+    connection.commit()
+
+
+def delete_sd_file_name(connection, sd_name: str):
+    connection.execute(SD_FILES_TABLE_SQL)
+    connection.execute("DELETE FROM sd_files WHERE sd_name = ?;", (sd_name,))
+    connection.commit()
 
 
 def setup_initial_db():

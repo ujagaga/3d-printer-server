@@ -43,7 +43,7 @@
       {% for f in sd_files %}
       {% set is_active = active_file and f.name.lstrip('/')|upper == active_file %}
       <tr{% if is_active %} class="active_print"{% endif %}>
-        <td>{{ f.name }}{% if is_active %} <span class="active_print_label">Printing</span>{% endif %}</td>
+        <td>{{ sd_original_names.get(f.name.lstrip('/')|upper, f.name) }}{% if is_active %} <span class="active_print_label">Printing</span>{% endif %}</td>
         <td>{% if f.size %}{{ (f.size / 1048576) | round(2) }} MB{% endif %}</td>
         <td>
           {% if not f.hidden %}
